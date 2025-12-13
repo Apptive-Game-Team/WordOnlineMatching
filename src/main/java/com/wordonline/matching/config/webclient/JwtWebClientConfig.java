@@ -23,8 +23,13 @@ public class JwtWebClientConfig {
     public WebClient.Builder webClientBuilder() {
         String jwtToken = loadJwtToken();
         
-        return WebClient.builder()
-                .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken);
+        WebClient.Builder builder = WebClient.builder();
+        
+        if (jwtToken != null && !jwtToken.isEmpty()) {
+            builder.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken);
+        }
+        
+        return builder;
     }
 
     private String loadJwtToken() {

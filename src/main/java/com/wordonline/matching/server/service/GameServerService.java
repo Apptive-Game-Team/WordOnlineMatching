@@ -42,9 +42,7 @@ public class GameServerService {
         return gameServerClient.getGameSessions(serverUrl)
                 .map(roomListDto -> {
                     // Add server URL to each room info
-                    if (roomListDto == null || roomListDto.rooms() == null) {
-                        return List.<RoomInfoDto>of();
-                    }
+                    // GameServerClient ensures roomListDto is never null and always contains a list (may be empty)
                     return roomListDto.rooms().stream()
                             .map(room -> new RoomInfoDto(
                                     room.sessionId(),
