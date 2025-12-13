@@ -16,5 +16,9 @@ public class Server {
     private Integer port;
     private ServerState state;
     private ServerType type;
+
+    public String getUrl() {
+        return String.format("%s://%s:%d", protocol, domain, port);
+    }
 }
 
