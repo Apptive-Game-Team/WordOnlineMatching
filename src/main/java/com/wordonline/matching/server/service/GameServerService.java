@@ -1,14 +1,14 @@
 package com.wordonline.matching.server.service;
 
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
 
-import com.wordonline.matching.server.domain.Server;
-import com.wordonline.matching.server.domain.ServerState;
-import com.wordonline.matching.server.domain.ServerType;
+import com.wordonline.matching.server.client.GameServerClient;
 import com.wordonline.matching.server.dto.RoomInfoDto;
 import com.wordonline.matching.server.dto.RoomListDto;
-import com.wordonline.matching.server.repository.ServerRepository;
+import com.wordonline.matching.session.entity.Server;
+import com.wordonline.matching.session.entity.ServerState;
+import com.wordonline.matching.session.entity.ServerType;
+import com.wordonline.matching.session.repository.ServerRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +22,7 @@ import java.util.List;
 public class GameServerService {
 
     private final ServerRepository serverRepository;
-    private final WebClient.Builder webClientBuilder;
+    private final GameServerClient gameServerClient;
 
     public Mono<RoomListDto> getAllGameSessions() {
         return serverRepository.findAllByTypeAndState(ServerType.GAME, ServerState.ACTIVE)
@@ -37,14 +37,9 @@ public class GameServerService {
     }
 
     private Mono<List<RoomInfoDto>> fetchGameSessionsFromServer(Server server) {
-        log.info("Fetching game sessions from server: {}", server.getServerUrl());
+        String serverUrl = server.getUrl();
         
-        WebClient webClient = webClientBuilder.baseUrl(server.getServerUrl()).build();
-        
-        return webClient.get()
-                .uri("/api/server/game-sessions")
-                .retrieve()
-                .bodyToMono(RoomListDto.class)
+        return gameServerClient.getGameSessions(serverUrl)
                 .map(roomListDto -> {
                     // Add server URL to each room info
                     if (roomListDto == null || roomListDto.rooms() == null) {
@@ -55,13 +50,9 @@ public class GameServerService {
                                     room.sessionId(),
                                     room.leftUserId(),
                                     room.rightUserId(),
-                                    server.getServerUrl()
+                                    serverUrl
                             ))
                             .toList();
-                })
-                .onErrorResume(error -> {
-                    log.error("Failed to fetch game sessions from server: {}", server.getServerUrl(), error);
-                    return Mono.just(List.of());
                 });
     }
 }

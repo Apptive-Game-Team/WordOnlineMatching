@@ -1,4 +1,4 @@
-package com.wordonline.matching.server.domain;
+package com.wordonline.matching.session.entity;
 
 public enum ServerState {
     ACTIVE,

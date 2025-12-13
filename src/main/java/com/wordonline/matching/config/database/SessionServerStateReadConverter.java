@@ -3,10 +3,10 @@ package com.wordonline.matching.config.database;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.data.convert.ReadingConverter;
 
-import com.wordonline.matching.server.domain.ServerState;
+import com.wordonline.matching.session.entity.ServerState;
 
 @ReadingConverter
-public class ServerStateReadConverter implements Converter<String, ServerState> {
+public class SessionServerStateReadConverter implements Converter<String, ServerState> {
 
     @Override
     public ServerState convert(String source) {

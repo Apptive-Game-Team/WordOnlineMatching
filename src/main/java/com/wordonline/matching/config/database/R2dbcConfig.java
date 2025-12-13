@@ -32,10 +32,10 @@ public class R2dbcConfig extends AbstractR2dbcConfiguration {
                         new UserStatusWriteConverter(),
                         new DecoTypeReadConverter(),
                         new DecoTypeWriteConverter(),
-                        new ServerTypeReadConverter(),
-                        new ServerTypeWriteConverter(),
-                        new ServerStateReadConverter(),
-                        new ServerStateWriteConverter()
+                        new SessionServerTypeReadConverter(),
+                        new SessionServerTypeWriteConverter(),
+                        new SessionServerStateReadConverter(),
+                        new SessionServerStateWriteConverter()
                 ));
     }
 }
