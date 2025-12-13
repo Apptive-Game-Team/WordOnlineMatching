@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import com.wordonline.matching.server.domain.Server;
+import com.wordonline.matching.server.domain.ServerState;
 import com.wordonline.matching.server.domain.ServerType;
 import com.wordonline.matching.server.dto.RoomInfoDto;
 import com.wordonline.matching.server.dto.RoomListDto;
@@ -24,7 +25,7 @@ public class GameServerService {
     private final WebClient.Builder webClientBuilder;
 
     public Mono<RoomListDto> getAllGameSessions() {
-        return serverRepository.findByServerTypeAndActiveTrue(ServerType.GAME)
+        return serverRepository.findAllByTypeAndState(ServerType.GAME, ServerState.ACTIVE)
                 .flatMap(this::fetchGameSessionsFromServer)
                 .collectList()
                 .map(listOfLists -> {

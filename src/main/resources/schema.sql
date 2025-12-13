@@ -11,10 +11,3 @@ CREATE TABLE user_decorations (
 );
 
 ALTER TABLE user_decorations ADD COLUMN is_equipped BOOLEAN DEFAULT FALSE;
-
-CREATE TABLE servers (
-    id BIGSERIAL PRIMARY KEY,
-    server_url VARCHAR(255) NOT NULL,
-    server_type VARCHAR(20) NOT NULL,
-    active BOOLEAN DEFAULT TRUE
-);

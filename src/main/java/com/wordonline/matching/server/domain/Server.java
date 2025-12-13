@@ -20,7 +20,7 @@ public class Server {
     
     private String serverUrl;
     
-    private ServerType serverType;
+    private ServerType type;
     
-    private boolean active;
+    private ServerState state;
 }

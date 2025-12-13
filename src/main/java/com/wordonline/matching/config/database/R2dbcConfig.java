@@ -33,7 +33,9 @@ public class R2dbcConfig extends AbstractR2dbcConfiguration {
                         new DecoTypeReadConverter(),
                         new DecoTypeWriteConverter(),
                         new ServerTypeReadConverter(),
-                        new ServerTypeWriteConverter()
+                        new ServerTypeWriteConverter(),
+                        new ServerStateReadConverter(),
+                        new ServerStateWriteConverter()
                 ));
     }
 }
