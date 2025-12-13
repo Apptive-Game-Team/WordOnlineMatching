@@ -10,6 +10,9 @@ public class ServerTypeReadConverter implements Converter<String, ServerType> {
 
     @Override
     public ServerType convert(String source) {
+        if (source == null) {
+            return null;
+        }
         return ServerType.valueOf(source.toUpperCase());
     }
 }

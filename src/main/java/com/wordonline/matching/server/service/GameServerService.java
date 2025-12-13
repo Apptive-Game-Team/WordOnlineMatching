@@ -13,7 +13,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -29,8 +28,9 @@ public class GameServerService {
                 .flatMap(this::fetchGameSessionsFromServer)
                 .collectList()
                 .map(listOfLists -> {
-                    List<RoomInfoDto> allRooms = new ArrayList<>();
-                    listOfLists.forEach(allRooms::addAll);
+                    List<RoomInfoDto> allRooms = listOfLists.stream()
+                            .flatMap(List::stream)
+                            .toList();
                     return new RoomListDto(allRooms);
                 });
     }
