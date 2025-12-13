@@ -1,0 +1,15 @@
+package com.wordonline.matching.config.database;
+
+import org.springframework.core.convert.converter.Converter;
+import org.springframework.data.convert.WritingConverter;
+
+import com.wordonline.matching.server.domain.ServerType;
+
+@WritingConverter
+public class ServerTypeWriteConverter implements Converter<ServerType, String> {
+
+    @Override
+    public String convert(ServerType source) {
+        return source.name();
+    }
+}
