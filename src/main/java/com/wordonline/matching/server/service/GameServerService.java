@@ -47,6 +47,9 @@ public class GameServerService {
                 .bodyToMono(RoomListDto.class)
                 .map(roomListDto -> {
                     // Add server URL to each room info
+                    if (roomListDto == null || roomListDto.rooms() == null) {
+                        return List.<RoomInfoDto>of();
+                    }
                     return roomListDto.rooms().stream()
                             .map(room -> new RoomInfoDto(
                                     room.sessionId(),

@@ -13,6 +13,10 @@ public class ServerTypeReadConverter implements Converter<String, ServerType> {
         if (source == null) {
             return null;
         }
-        return ServerType.valueOf(source.toUpperCase());
+        try {
+            return ServerType.valueOf(source.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 }

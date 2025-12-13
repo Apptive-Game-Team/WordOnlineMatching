@@ -13,6 +13,10 @@ public class ServerStateReadConverter implements Converter<String, ServerState> 
         if (source == null) {
             return null;
         }
-        return ServerState.valueOf(source.toUpperCase());
+        try {
+            return ServerState.valueOf(source.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 }

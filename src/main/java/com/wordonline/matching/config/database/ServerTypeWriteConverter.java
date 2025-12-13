@@ -10,6 +10,9 @@ public class ServerTypeWriteConverter implements Converter<ServerType, String> {
 
     @Override
     public String convert(ServerType source) {
+        if (source == null) {
+            return null;
+        }
         return source.name();
     }
 }
