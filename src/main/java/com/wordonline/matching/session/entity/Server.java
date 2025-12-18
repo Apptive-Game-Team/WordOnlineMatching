@@ -18,7 +18,9 @@ public class Server {
     private ServerType type;
 
     public String getUrl() {
+        if (protocol == null || domain == null || port == null) {
+            throw new IllegalStateException("Server protocol, domain, and port must not be null");
+        }
         return String.format("%s://%s:%d", protocol, domain, port);
     }
 }
-
