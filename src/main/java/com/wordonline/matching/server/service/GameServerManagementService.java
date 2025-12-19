@@ -14,9 +14,11 @@ import com.wordonline.matching.server.entity.ServerType;
 import com.wordonline.matching.session.repository.ServerRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class GameServerManagementService {
@@ -33,13 +35,13 @@ public class GameServerManagementService {
     @Scheduled(fixedRate = 60 * 60 * 1000)
     public void load() {
         loadGameServer()
-                .subscribe();
+                .subscribe(result->{}, error -> {log.error("[Error] while load game servers", error);});
     }
 
     @Scheduled(fixedRate = 60 * 1000)
     public void update() {
         healthCheck()
-                .subscribe();
+                .subscribe(result->{}, error -> {log.error("[Error] while healthcheck game servers", error);});
     }
 
     private Mono<Void> loadGameServer() {
