@@ -1,5 +1,7 @@
 package com.wordonline.matching.server.client;
 
+import java.time.Duration;
+
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -29,5 +31,17 @@ public class GameServerClient {
                     log.error("Failed to fetch game sessions from server: {}", serverUrl, error);
                     return Mono.just(new RoomListDto(java.util.List.of()));
                 });
+    }
+
+    public Mono<Boolean> healthcheck(String serverUrl) {
+        WebClient webClient = webClientBuilder.baseUrl(serverUrl).build();
+
+        return webClient.get()
+                .uri("/healthcheck")
+                .retrieve()
+                .toBodilessEntity()
+                .map(responseEntity -> responseEntity.getStatusCode().is2xxSuccessful())
+                .onErrorReturn(false)
+                .timeout(Duration.ofSeconds(2));
     }
 }
