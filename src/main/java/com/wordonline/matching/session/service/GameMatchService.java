@@ -1,6 +1,7 @@
 package com.wordonline.matching.session.service;
 
-import org.springframework.beans.factory.annotation.Value;
+import java.util.Optional;
+
 import org.springframework.context.i18n.LocaleContext;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -10,37 +11,31 @@ import com.wordonline.matching.auth.dto.UserDetailResponseDto;
 import com.wordonline.matching.auth.service.UserService;
 import com.wordonline.matching.matching.dto.MatchedInfoDto;
 import com.wordonline.matching.matching.dto.SessionDto;
+import com.wordonline.matching.server.entity.Server;
+import com.wordonline.matching.server.service.GameServerManagementService;
 import com.wordonline.matching.service.LocalizationService;
 import com.wordonline.matching.session.domain.SessionRecoveryInfo;
 import com.wordonline.matching.session.dto.SimpleBooleanDto;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
 
 @Slf4j
 @Service
-public class GameSessionService {
+@RequiredArgsConstructor
+public class GameMatchService {
 
-    private final WebClient webClient;
+    private final WebClient.Builder webClientBuilder;
     private final SessionRecoveryStore sessionRecoveryStore;
     private final LocalizationService localizationService;
     private final UserService userService;
-    private final String serverUrl;
-
-    public GameSessionService(WebClient.Builder webClientBuilder, @Value("${team6515.server.game.url}") String url,
-            SessionRecoveryStore sessionRecoveryStore,
-            LocalizationService localizationService, UserService userService) {
-        this.sessionRecoveryStore = sessionRecoveryStore;
-        this.localizationService = localizationService;
-        this.webClient = webClientBuilder.baseUrl(url)
-                .build();
-        this.userService = userService;
-        serverUrl = url;
-    }
+    private final GameServerManagementService gameServerManagementService;
 
     public Mono<MatchedInfoDto> createSession(SessionDto sessionDto) {
-        return webClient.post().uri("/api/server/game-sessions")
+        Optional<Server> optionalServer = gameServerManagementService.getAvailableServer();
+        return getWebClient(optionalServer).flatMap(webClient -> webClient.post().uri("/api/server/game-sessions")
                 .body(Mono.just(sessionDto), SessionDto.class)
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
@@ -58,14 +53,14 @@ public class GameSessionService {
                 {
                     MatchedInfoDto matchedInfoDto = new MatchedInfoDto(
                             "Successfully Matched",
-                            serverUrl,
+                            optionalServer.get().getUrl(),
                             tuple.getT1(),
                             tuple.getT2(),
                             sessionDto.sessionId()
                     );
                     sessionRecoveryStore.storeMatchInfo(matchedInfoDto);
                     return matchedInfoDto;
-                });
+                }));
     }
 
     public Mono<MatchedInfoDto> getMatchInfo(long userId) {
@@ -100,10 +95,11 @@ public class GameSessionService {
     }
 
     private Mono<Boolean> checkSessionActive(String sessionId) {
-        return webClient.get().uri("/api/server/game-sessions/" + sessionId + "/active")
-                .retrieve()
-                .bodyToMono(SimpleBooleanDto.class)
-                .map(SimpleBooleanDto::value);
+        return getWebClient().flatMap(webClient ->
+                webClient.get().uri("/api/server/game-sessions/" + sessionId + "/active")
+                    .retrieve()
+                    .bodyToMono(SimpleBooleanDto.class)
+                    .map(SimpleBooleanDto::value));
     }
 
     private <T> Mono<T> getException() {
@@ -112,5 +108,15 @@ public class GameSessionService {
             return Mono.error(
                     new IllegalArgumentException(localizationService.getMessage(localeContext, "error.member.not.found")));
         });
+    }
+
+    private Mono<WebClient> getWebClient() {
+        return getWebClient(gameServerManagementService.getAvailableServer());
+    }
+
+    private Mono<WebClient> getWebClient(Optional<Server> server) {
+        return Mono.justOrEmpty(server)
+                .switchIfEmpty(Mono.error(new IllegalStateException("No available server found")))
+                .map(notNullserver -> webClientBuilder.baseUrl(notNullserver.getUrl()).build());
     }
 }

@@ -3,7 +3,7 @@ package com.wordonline.matching.config.database;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.data.convert.WritingConverter;
 
-import com.wordonline.matching.session.entity.ServerType;
+import com.wordonline.matching.server.entity.ServerType;
 
 @WritingConverter
 public class SessionServerTypeWriteConverter implements Converter<ServerType, String> {

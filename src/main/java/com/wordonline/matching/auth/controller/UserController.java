@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.wordonline.matching.auth.dto.UserResponseDto;
 import com.wordonline.matching.auth.service.UserService;
 import com.wordonline.matching.matching.dto.MatchedInfoDto;
-import com.wordonline.matching.session.service.GameSessionService;
+import com.wordonline.matching.session.service.GameMatchService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,7 +27,7 @@ import reactor.core.publisher.Mono;
 public class UserController {
 
     private final UserService userService;
-    private final GameSessionService gameSessionService;
+    private final GameMatchService gameMatchService;
 
     @GetMapping("/mine")
     public Mono<UserResponseDto> getUser(@AuthenticationPrincipal Jwt principalDetails) {
@@ -53,7 +53,7 @@ public class UserController {
     public Mono<MatchedInfoDto> getMatchInfo(
             @AuthenticationPrincipal Jwt principalDetails
     ) {
-        return gameSessionService.getMatchInfo(
+        return gameMatchService.getMatchInfo(
                 principalDetails.getClaim("memberId")
         );
     }

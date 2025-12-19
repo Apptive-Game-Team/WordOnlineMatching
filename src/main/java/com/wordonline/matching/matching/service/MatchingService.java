@@ -10,7 +10,6 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.util.Queue;
-import java.util.Random;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -18,7 +17,7 @@ import com.wordonline.matching.deck.service.DeckService;
 import com.wordonline.matching.auth.service.UserService;
 import com.wordonline.matching.matching.dto.SessionDto;
 import com.wordonline.matching.matching.dto.SimpleMessageDto;
-import com.wordonline.matching.session.service.GameSessionService;
+import com.wordonline.matching.session.service.GameMatchService;
 
 @Slf4j
 @Component
@@ -31,7 +30,7 @@ public class MatchingService {
 
     private final DeckService deckService;
     private final UserService userService;
-    private final GameSessionService gameSessionService;
+    private final GameMatchService gameMatchService;
     private final BotMemberMaker botMemberMaker;
 
     public int getQueueLength() {
@@ -150,7 +149,7 @@ public class MatchingService {
     private Mono<Boolean> createSession(long sessionId, long uid1, long uid2) {
         SessionDto sessionDto = new SessionDto("session-" + sessionId, uid1, uid2);
 
-        return gameSessionService.createSession(sessionDto)
+        return gameMatchService.createSession(sessionDto)
                 .flatMap(matchedInfoDto -> Mono.zip(
                                 userService.markPlaying(uid1),
                                 userService.markPlaying(uid2))

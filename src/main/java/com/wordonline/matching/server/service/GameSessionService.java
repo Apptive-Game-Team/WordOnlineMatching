@@ -5,9 +5,9 @@ import org.springframework.stereotype.Service;
 import com.wordonline.matching.server.client.GameServerClient;
 import com.wordonline.matching.server.dto.RoomInfoDto;
 import com.wordonline.matching.server.dto.RoomListDto;
-import com.wordonline.matching.session.entity.Server;
-import com.wordonline.matching.session.entity.ServerState;
-import com.wordonline.matching.session.entity.ServerType;
+import com.wordonline.matching.server.entity.Server;
+import com.wordonline.matching.server.entity.ServerState;
+import com.wordonline.matching.server.entity.ServerType;
 import com.wordonline.matching.session.repository.ServerRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -19,7 +19,7 @@ import java.util.List;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class GameServerService {
+public class GameSessionService {
 
     private final ServerRepository serverRepository;
     private final GameServerClient gameServerClient;

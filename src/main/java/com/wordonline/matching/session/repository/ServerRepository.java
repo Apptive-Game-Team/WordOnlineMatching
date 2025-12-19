@@ -2,9 +2,9 @@ package com.wordonline.matching.session.repository;
 
 import org.springframework.data.r2dbc.repository.R2dbcRepository;
 
-import com.wordonline.matching.session.entity.Server;
-import com.wordonline.matching.session.entity.ServerState;
-import com.wordonline.matching.session.entity.ServerType;
+import com.wordonline.matching.server.entity.Server;
+import com.wordonline.matching.server.entity.ServerState;
+import com.wordonline.matching.server.entity.ServerType;
 
 import reactor.core.publisher.Flux;
 
