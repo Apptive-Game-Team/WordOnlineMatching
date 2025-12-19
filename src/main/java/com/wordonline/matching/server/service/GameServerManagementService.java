@@ -27,7 +27,12 @@ public class GameServerManagementService {
     private final List<Server> gameServers = new CopyOnWriteArrayList<>();
 
     public Optional<Server> getAvailableServer() {
-        return gameServers.stream().filter(Server::isAvailable).findAny();
+        for (Server server : gameServers) {
+            if (server.isAvailable()) {
+                return Optional.of(server);
+            }
+        }
+        return Optional.empty();
     }
 
     @Scheduled(fixedRate = 60 * 60 * 1000)
