@@ -45,10 +45,9 @@ public class GameServerManagementService {
     private Mono<Void> loadGameServer() {
         return serverRepository.findAllByTypeAndState(ServerType.GAME, ServerState.ACTIVE)
                 .collectList()
-                .map(list -> {
+                .doOnNext(list -> {
                     gameServers.clear();
                     gameServers.addAll(list);
-                    return 0;
                 })
                 .then(healthCheck());
     }
