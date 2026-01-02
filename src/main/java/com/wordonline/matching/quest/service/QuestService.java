@@ -27,8 +27,13 @@ public class QuestService {
         return questRepository.findAllByUserIdAndState(userId, QuestState.IN_PROGRESS)
                 .filter(quest -> quest.getProgressChecker() != null)
                 .filterWhen(quest -> questChecker.check(userId, quest))
-                .flatMap(quest -> rewardGiver.give(userId, quest))
+                .flatMap(quest -> rewardGiver.give(userId, quest)
+                        .then(markQuestCompleted(userId, quest.getId())))
                 .then();
+    }
+
+    private Mono<Void> markQuestCompleted(long userId, long questId) {
+        return userQuestRepository.setCompletedByUserIdAndQuestId(userId, questId);
     }
 
     public Mono<QuestProgressResponseDto> findQuestProgressByDecoration(long userId, long decoId) {

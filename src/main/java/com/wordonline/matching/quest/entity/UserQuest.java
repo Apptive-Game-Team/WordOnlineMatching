@@ -20,4 +20,8 @@ public class UserQuest {
     private Long questId;
     private Long userId;
     private QuestState state;
+
+    public void setCompleted() {
+        state = QuestState.COMPLETED;
+    }
 }
