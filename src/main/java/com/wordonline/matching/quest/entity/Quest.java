@@ -14,6 +14,6 @@ public class Quest {
     @Id
     private Long id;
     private String progressChecker;
-    private String requireValue;
+    private Integer requireValue;
     private String rewardGiver;
 }

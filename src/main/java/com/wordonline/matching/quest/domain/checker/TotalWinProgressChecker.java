@@ -1,4 +1,4 @@
-package com.wordonline.matching.quest.domain;
+package com.wordonline.matching.quest.domain.checker;
 
 import org.springframework.stereotype.Component;
 
