@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.wordonline.matching.decoration.dto.DecorationRequest;
 import com.wordonline.matching.decoration.dto.DecorationsResponse;
 import com.wordonline.matching.decoration.service.DecorationService;
+import com.wordonline.matching.quest.dto.QuestProgressResponseDto;
+import com.wordonline.matching.quest.service.QuestService;
 
 import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Mono;
@@ -25,6 +27,7 @@ import reactor.core.publisher.Mono;
 public class DecorationController {
 
     private final DecorationService decorationService;
+    private final QuestService questService;
 
     @GetMapping("/mine/decorations")
     public Mono<DecorationsResponse> getMyDecoration(
@@ -32,6 +35,14 @@ public class DecorationController {
             @RequestParam(required = false, defaultValue = "false") boolean equippedOnly
     ) {
         return getDecoration(principalDetails.getClaim("memberId"), equippedOnly);
+    }
+
+    @GetMapping("/mine/decorations/{decoId}/quests")
+    public Mono<QuestProgressResponseDto> getQuestState(
+            @AuthenticationPrincipal Jwt principalDetails,
+            @PathVariable Long decoId
+    ) {
+        return questService.findQuestProgressByDecoration(principalDetails.getClaim("memberId"), decoId);
     }
 
     @PostMapping("/mine/decorations")

@@ -9,4 +9,6 @@ import reactor.core.publisher.Mono;
 public interface RewardParamRepository extends R2dbcRepository<RewardParam, Long> {
 
     Mono<RewardParam> findByQuestIdAndName(Long questId, String name);
+
+    Mono<RewardParam> findByNameAndValue(String name, Integer value);
 }

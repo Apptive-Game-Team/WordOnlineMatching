@@ -20,6 +20,10 @@ public class QuestChecker {
     private final ApplicationContext applicationContext;
 
     public Mono<Boolean> check(long userId, Quest quest) {
+        return getProgress(userId, quest).map(progress -> progress >= quest.getRequireValue());
+    }
+
+    public Mono<Integer> getProgress(long userId, Quest quest) {
         ProgressChecker progressChecker;
 
         try {
@@ -27,9 +31,9 @@ public class QuestChecker {
                     applicationContext.getBean(quest.getProgressChecker(), ProgressChecker.class);
         } catch (NoSuchBeanDefinitionException | BeanNotOfRequiredTypeException e) {
             log.error("[Error] error while find progress checker", e);
-            return Mono.just(false);
+            return Mono.just(0);
         }
 
-       return progressChecker.check(userId).map(progress -> progress >= quest.getRequireValue());
+        return progressChecker.check(userId);
     }
 }

@@ -5,6 +5,13 @@ import org.springframework.data.relational.core.mapping.Table;
 
 import com.wordonline.matching.quest.domain.QuestState;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+@Getter
+@NoArgsConstructor
+@AllArgsConstructor
 @Table("user_quests")
 public class UserQuest {
 
