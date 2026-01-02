@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
-@Table("reward_param")
+@Table("reward_params")
 public class RewardParam {
 
     @Id
