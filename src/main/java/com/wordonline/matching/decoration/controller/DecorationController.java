@@ -37,7 +37,7 @@ public class DecorationController {
         return getDecoration(principalDetails.getClaim("memberId"), equippedOnly);
     }
 
-    @GetMapping("/mine/decorations/{decoId}/quests")
+    @GetMapping("/mine/decorations/{decoId}/quest-progress")
     public Mono<QuestProgressResponseDto> getQuestState(
             @AuthenticationPrincipal Jwt principalDetails,
             @PathVariable Long decoId

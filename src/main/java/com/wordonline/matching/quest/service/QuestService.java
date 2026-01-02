@@ -1,5 +1,6 @@
 package com.wordonline.matching.quest.service;
 
+import com.wordonline.matching.quest.entity.Quest;
 import org.springframework.stereotype.Service;
 
 import com.wordonline.matching.quest.domain.QuestState;
@@ -30,8 +31,17 @@ public class QuestService {
     }
 
     public Mono<QuestProgressResponseDto> findQuestProgressByDecoration(long userId, long decoId) {
-        return rewardParamRepository.findByNameAndValue("decoration_id", (int) decoId)
-                .flatMap(rewardParam -> questRepository.findById(rewardParam.getQuestId()))
+        return findQuestProgress(userId, rewardParamRepository.findByNameAndValue("decoration_id", (int) decoId)
+                .flatMap(rewardParam -> questRepository.findById(rewardParam.getQuestId())));
+    }
+
+    public Mono<QuestProgressResponseDto> findQuestProgressByCard(long userId, long cardId) {
+        return findQuestProgress(userId, rewardParamRepository.findByNameAndValue("card_id", (int) cardId)
+                .flatMap(rewardParam -> questRepository.findById(rewardParam.getQuestId())));
+    }
+
+    private Mono<QuestProgressResponseDto> findQuestProgress(long userId, Mono<Quest> questMono) {
+        return questMono
                 .flatMap(quest -> userQuestRepository.findByUserIdAndQuestId(userId, quest.getId())
                         .defaultIfEmpty(new UserQuest(null, quest.getId(), userId, QuestState.PENDING))
                         .flatMap(userQuest -> questChecker.getProgress(userId, quest)
