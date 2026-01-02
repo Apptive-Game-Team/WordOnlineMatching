@@ -10,7 +10,7 @@ import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Mono;
 
 @Scope("prototype")
-@Component("demo_rg")
+@Component("deco_rg")
 @RequiredArgsConstructor
 public class DecorationRewardGiver implements RewardGiver {
 

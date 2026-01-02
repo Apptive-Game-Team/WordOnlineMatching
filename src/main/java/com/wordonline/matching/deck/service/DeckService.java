@@ -45,7 +45,6 @@ public class DeckService {
     private final DeckCardRepository deckCardRepository;
     private final QuestService questService;
 
-
     @Transactional(readOnly = true)
     public Mono<Boolean> hasSelectedDeck(long userId) {
         return userRepository.findById(userId)
