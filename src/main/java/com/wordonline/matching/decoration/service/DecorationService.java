@@ -58,7 +58,7 @@ public class DecorationService {
     // ==========
     public Mono<Void> setDecoration(long memberId, DecorationRequest decorationRequest) {
         return mapToDecoType(decorationRequest)
-                .map(decoType -> userDecorationRepository.resetIsEquippedByMemberIdAndDecoType(memberId, decoType))
+                .flatMap(decoType -> userDecorationRepository.resetIsEquippedByMemberIdAndDecoType(memberId, decoType))
                 .then(userDecorationRepository.setIsEquippedByMemberIdAndDecorationId(memberId, decorationRequest.decorationId()));
     }
 

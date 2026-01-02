@@ -1,5 +1,6 @@
 package com.wordonline.matching.decoration.repository;
 
+import org.springframework.data.r2dbc.repository.Modifying;
 import org.springframework.data.r2dbc.repository.Query;
 import org.springframework.data.r2dbc.repository.R2dbcRepository;
 import org.springframework.data.repository.query.Param;
@@ -19,15 +20,16 @@ public interface UserDecorationRepository extends R2dbcRepository<UserDecoration
 
     Mono<UserDecoration> findByUserIdAndDecorationId(long memberId, long decorationId);
 
+    @Modifying // 상태를 변경하는 쿼리이므로 필수!
     @Query("""
-UPDATE user_decorations ud
-SET is_equipped = FALSE
-FROM decorations d
-WHERE ud.decoration_id = d.id
-  AND ud.user_id = :memberId
-  AND d.deco_type = :decoType
-""")
-    Mono<Void> resetIsEquippedByMemberIdAndDecoType(@Param("memberId") long memberId, @Param("decoType") DecoType decoType);
+    UPDATE user_decorations
+    SET is_equipped = FALSE
+    WHERE user_id = :memberId
+      AND decoration_id IN (
+          SELECT id FROM decorations WHERE deco_type = :decoType
+      )
+    """)
+    Mono<Integer> resetIsEquippedByMemberIdAndDecoType(@Param("memberId") long memberId, @Param("decoType") DecoType decoType);
 
     @Query("""
 UPDATE user_decorations
