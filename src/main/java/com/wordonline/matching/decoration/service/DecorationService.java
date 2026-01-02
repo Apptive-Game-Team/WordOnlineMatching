@@ -10,6 +10,7 @@ import com.wordonline.matching.decoration.entity.Decoration;
 import com.wordonline.matching.decoration.entity.UserDecoration;
 import com.wordonline.matching.decoration.repository.DecorationRepository;
 import com.wordonline.matching.decoration.repository.UserDecorationRepository;
+import com.wordonline.matching.quest.service.QuestService;
 
 import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Flux;
@@ -22,16 +23,18 @@ public class DecorationService {
 
     private final DecorationRepository decorationRepository;
     private final UserDecorationRepository userDecorationRepository;
+    private final QuestService questService;
 
     public Flux<DecorationResponse> getDecorationsByUserId(long memberId, boolean equippedOnly) {
-        return userDecorationRepository.existsByUserId(memberId)
-                .flatMapMany(isInitialized -> {
-                    if (isInitialized) {
-                        return findDecorationsByUserId(memberId, equippedOnly);
-                    }
-                    return initDecoration(memberId)
-                            .thenMany(findDecorationsByUserId(memberId, equippedOnly));
-                });
+        return questService.checkQuests(memberId)
+                .thenMany(userDecorationRepository.existsByUserId(memberId)
+                    .flatMapMany(isInitialized -> {
+                        if (isInitialized) {
+                            return findDecorationsByUserId(memberId, equippedOnly);
+                        }
+                        return initDecoration(memberId)
+                                .thenMany(findDecorationsByUserId(memberId, equippedOnly));
+                    }));
     }
 
     private Flux<DecorationResponse> findDecorationsByUserId(long memberId, boolean equippedOnly) {
