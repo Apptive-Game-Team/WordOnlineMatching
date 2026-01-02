@@ -39,7 +39,8 @@ public class QuestRewardGiver {
         }
 
         return fillParam(rewardGiver, quest.getId())
-                .then(rewardGiver.give(userId));
+                .then(Mono.defer(() -> rewardGiver.give(userId)))
+                .then();
     }
 
     private Mono<Void> fillParam(RewardGiver rewardGiver, long questId) {
@@ -52,7 +53,7 @@ public class QuestRewardGiver {
                             .publishOn(Schedulers.boundedElastic())
                             .flatMap(rewardParam -> {
                                 try {
-                                    field.set(rewardGiver, rewardParam.getValue());
+                                    field.set(rewardGiver, convertToFieldType(rewardParam.getValue(), field.getType()));
                                 } catch (IllegalAccessException e) {
                                     log.error("[Error] fill field with reflection");
                                     return Mono.error(e);
@@ -62,5 +63,32 @@ public class QuestRewardGiver {
                             .then();
                 })
                 .then();
+    }
+
+    private Object convertToFieldType(Object value, Class<?> targetType) {
+        if (value == null) return null;
+
+        // 1. 이미 타입이 맞다면 그대로 반환
+        if (targetType.isInstance(value)) {
+            return value;
+        }
+
+        // 2. 숫자 타입인 경우 (Integer -> Long 등 처리)
+        if (value instanceof Number) {
+            Number num = (Number) value;
+            if (targetType == Long.class || targetType == long.class) return num.longValue();
+            if (targetType == Integer.class || targetType == int.class) return num.intValue();
+            if (targetType == Double.class || targetType == double.class) return num.doubleValue();
+            if (targetType == Float.class || targetType == float.class) return num.floatValue();
+            if (targetType == Short.class || targetType == short.class) return num.shortValue();
+        }
+
+        // 3. 문자열 변환 요청 시
+        if (targetType == String.class) {
+            return String.valueOf(value);
+        }
+
+        // 4. 그 외의 경우 (최대한 캐스팅 시도)
+        return targetType.cast(value);
     }
 }

@@ -3,12 +3,14 @@ package com.wordonline.matching.auth.service;
 import com.wordonline.matching.auth.domain.User;
 import com.wordonline.matching.auth.repository.UserRepository;
 import com.wordonline.matching.deck.service.DeckInitializer;
+import com.wordonline.matching.decoration.service.DecorationInitializer;
 import com.wordonline.matching.matching.client.AccountClient;
 import com.wordonline.matching.quest.service.QuestInitializer;
 import com.wordonline.matching.service.LocalizationService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -30,6 +32,8 @@ class UserServiceTest {
     @Mock
     private QuestInitializer questInitializer;
     @Mock
+    private DecorationInitializer decorationInitializer;
+    @Mock
     private AccountClient accountClient;
     @Mock
     private LocalizationService localizationService;
@@ -48,15 +52,21 @@ class UserServiceTest {
         when(userRepository.findById(userId)).thenReturn(Mono.just(user));
         when(deckInitializer.initializeCard(userId)).thenReturn(Mono.just(deckId));
         when(questInitializer.initializeQuests(userId)).thenReturn(Mono.empty());
-        when(userRepository.save(any(User.class))).thenReturn(Mono.just(user));
+        when(decorationInitializer.initialize(userId)).thenReturn(Mono.empty());
+
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        when(userRepository.save(userCaptor.capture())).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
         Mono<User> result = userService.initialUser(userId);
 
         StepVerifier.create(result)
-                .expectNextMatches(savedUser -> savedUser.getId() == userId && savedUser.getSelectedDeckId() == deckId)
+                .expectNextMatches(savedUser -> {
+                    return savedUser.getId() == userId && savedUser.getSelectedDeckId() == deckId;
+                })
                 .verifyComplete();
 
         verify(deckInitializer).initializeCard(userId);
         verify(questInitializer).initializeQuests(userId);
+        verify(decorationInitializer).initialize(userId);
     }
 }

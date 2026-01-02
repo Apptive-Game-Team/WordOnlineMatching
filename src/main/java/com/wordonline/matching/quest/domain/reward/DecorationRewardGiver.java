@@ -7,8 +7,10 @@ import com.wordonline.matching.decoration.entity.UserDecoration;
 import com.wordonline.matching.decoration.repository.UserDecorationRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 
+@Slf4j
 @Scope("prototype")
 @Component("deco_rg")
 @RequiredArgsConstructor

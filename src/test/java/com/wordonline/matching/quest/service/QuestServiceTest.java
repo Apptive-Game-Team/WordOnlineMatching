@@ -104,12 +104,13 @@ class QuestServiceTest {
         long userId = 1L;
         long cardId = 1L;
         int progress = 100; // Progress is complete
-        RewardParam rewardParam = new RewardParam(1L, quest.getId(), "card_id", (int) cardId);
-        UserQuest pendingUserQuest = new UserQuest(1L, 1L, 1L, QuestState.PENDING);
-        UserQuest completedUserQuest = new UserQuest(1L, 1L, 1L, QuestState.COMPLETED);
+        Quest localQuest = new Quest(2L, "checker2", 100, "giver2");
+        RewardParam rewardParam = new RewardParam(1L, localQuest.getId(), "card_id", (int) cardId);
+        UserQuest pendingUserQuest = new UserQuest(1L, 2L, 1L, QuestState.PENDING);
+        UserQuest completedUserQuest = new UserQuest(1L, 2L, 1L, QuestState.COMPLETED);
 
         when(rewardParamRepository.findByNameAndValue(anyString(), anyInt())).thenReturn(Mono.just(rewardParam));
-        when(questRepository.findById(anyLong())).thenReturn(Mono.just(quest));
+        when(questRepository.findById(anyLong())).thenReturn(Mono.just(localQuest));
         when(userQuestRepository.findByUserIdAndQuestId(anyLong(), anyLong())).thenReturn(Mono.just(pendingUserQuest));
         when(questChecker.getProgress(anyLong(), any(Quest.class))).thenReturn(Mono.just(progress));
         when(userQuestRepository.save(any(UserQuest.class))).thenReturn(Mono.just(completedUserQuest));
@@ -120,7 +121,7 @@ class QuestServiceTest {
                 .expectNextMatches(response ->
                         response.getState() == QuestState.COMPLETED &&
                         response.getProgress() == progress &&
-                        response.getRequireValue() == quest.getRequireValue()
+                        response.getRequireValue() == localQuest.getRequireValue()
                 )
                 .verifyComplete();
     }

@@ -11,7 +11,7 @@ import reactor.core.publisher.Flux;
 public interface QuestRepository extends R2dbcRepository<Quest, Long> {
 
     @Query("""
-    SELECT q FROM quests q
+    SELECT q.id as id, q.reward_giver as reward_giver, q.require_value as require_value, q.progress_checker as progress_checker FROM quests q
     JOIN user_quests uq ON q.id = uq.quest_id
     WHERE uq.user_id = :userId AND uq.state = :state
 """)
