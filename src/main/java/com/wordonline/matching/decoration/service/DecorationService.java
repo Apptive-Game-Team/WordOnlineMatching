@@ -27,14 +27,7 @@ public class DecorationService {
 
     public Flux<DecorationResponse> getDecorationsByUserId(long memberId, boolean equippedOnly) {
         return questService.checkQuests(memberId)
-                .thenMany(userDecorationRepository.existsByUserId(memberId)
-                    .flatMapMany(isInitialized -> {
-                        if (isInitialized) {
-                            return findDecorationsByUserId(memberId, equippedOnly);
-                        }
-                        return initDecoration(memberId)
-                                .thenMany(findDecorationsByUserId(memberId, equippedOnly));
-                    }));
+                .thenMany(findDecorationsByUserId(memberId, equippedOnly));
     }
 
     private Flux<DecorationResponse> findDecorationsByUserId(long memberId, boolean equippedOnly) {
@@ -65,20 +58,5 @@ public class DecorationService {
     private Mono<DecoType> mapToDecoType(DecorationRequest decorationRequest) {
         return decorationRepository.findById(decorationRequest.decorationId())
                 .map(Decoration::getDecoType);
-    }
-
-    private Mono<Void> initDecoration(long userId) {
-        return giveAllDecoration(userId)
-                .then(setDecoration(userId, new DecorationRequest(1)))
-                .then(setDecoration(userId, new DecorationRequest(2)))
-                .then();
-    }
-
-    private Mono<Void> giveAllDecoration(long userId) {
-        return decorationRepository.findAll()
-                .map(Decoration::getId)
-                .map(decorationId -> new UserDecoration(null, userId, decorationId, false))
-                .flatMap(userDecorationRepository::save)
-                .then();
     }
 }

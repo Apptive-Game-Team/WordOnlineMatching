@@ -25,6 +25,7 @@ public class QuestService {
 
     public Mono<Void> checkQuests(long userId) {
         return questRepository.findAllByUserIdAndState(userId, QuestState.IN_PROGRESS)
+                .filter(quest -> quest.getProgressChecker() != null)
                 .filterWhen(quest -> questChecker.check(userId, quest))
                 .doOnNext(quest -> rewardGiver.give(userId, quest))
                 .then();

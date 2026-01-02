@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.wordonline.matching.decoration.dto.DecorationRequest;
 import com.wordonline.matching.decoration.dto.DecorationsResponse;
+import com.wordonline.matching.decoration.service.DecorationInitializer;
 import com.wordonline.matching.decoration.service.DecorationService;
 import com.wordonline.matching.quest.dto.QuestProgressResponseDto;
 import com.wordonline.matching.quest.service.QuestService;
@@ -27,6 +28,7 @@ import reactor.core.publisher.Mono;
 public class DecorationController {
 
     private final DecorationService decorationService;
+    private final DecorationInitializer decorationInitializer;
     private final QuestService questService;
 
     @GetMapping("/mine/decorations")

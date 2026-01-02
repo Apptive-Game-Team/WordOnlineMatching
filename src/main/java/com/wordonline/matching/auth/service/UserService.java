@@ -12,7 +12,9 @@ import com.wordonline.matching.auth.dto.UserResponseDto;
 import com.wordonline.matching.auth.repository.UserRepository;
 import com.wordonline.matching.deck.service.DeckInitializer;
 import com.wordonline.matching.deck.service.DeckService;
+import com.wordonline.matching.decoration.service.DecorationInitializer;
 import com.wordonline.matching.matching.client.AccountClient;
+import com.wordonline.matching.quest.service.QuestInitializer;
 import com.wordonline.matching.service.LocalizationService;
 
 import lombok.RequiredArgsConstructor;
@@ -29,6 +31,8 @@ public class UserService {
     private final UserRepository userRepository;
     private final DeckService deckService;
     private final DeckInitializer deckInitializer;
+    private final QuestInitializer questInitializer;
+    private final DecorationInitializer decorationInitializer;
     private final AccountClient accountClient;
     private final LocalizationService localizationService;
 
@@ -46,7 +50,10 @@ public class UserService {
                     })
                 ).flatMap(saveUser ->
                         deckInitializer.initializeCard(saveUser.getId())
-                            .map(deckId -> Tuples.of(saveUser, deckId))
+                                .flatMap(deckId -> questInitializer.initializeQuests(saveUser.getId())
+                                        .then(decorationInitializer.initialize(saveUser.getId()))
+                                        .thenReturn(deckId))
+                                .map(deckId -> Tuples.of(saveUser, deckId))
                 ).flatMap(tuple -> {
                     tuple.getT1().setSelectedDeckId(tuple.getT2());
                     return userRepository.save(tuple.getT1());
