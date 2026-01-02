@@ -51,7 +51,7 @@ public class DeckService {
                 .map(user -> user.getSelectedDeckId() != null);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public Flux<DeckResponseDto> getDecks(long userId){
         return questService.checkQuests(userId).thenMany(deckRepository.findAllByUserId(userId)
             .flatMap(deck -> deckCardRepository.findAllByDeckId(deck.getId())
