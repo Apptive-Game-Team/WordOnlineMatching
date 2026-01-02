@@ -50,9 +50,10 @@ CREATE TABLE reward_params (
 
 ALTER TABLE reward_params ADD CONSTRAINT uq_reward_params_quest_id_name UNIQUE (quest_id, name);
 
+
 CREATE TABLE user_quests (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
     quest_id BIGINT REFERENCES quests(id) ON DELETE CASCADE,
-    state VARCHAR(10) NOT NULL DEFAULT 'IN_PROGRESS' -- 'PENDING', 'IN_PROGRESS', 'COMPLETED'
+    state VARCHAR(15) NOT NULL DEFAULT 'IN_PROGRESS' -- 'PENDING', 'IN_PROGRESS', 'COMPLETED'
 );
