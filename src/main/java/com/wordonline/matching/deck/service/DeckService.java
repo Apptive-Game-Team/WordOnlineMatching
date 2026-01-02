@@ -22,6 +22,7 @@ import com.wordonline.matching.deck.repository.DeckCardRepository;
 import com.wordonline.matching.deck.repository.DeckRepository;
 import com.wordonline.matching.deck.repository.UserCardRepository;
 import com.wordonline.matching.deck.validation.DeckValidator;
+import com.wordonline.matching.quest.service.QuestService;
 import com.wordonline.matching.service.LocalizationService;
 
 import lombok.RequiredArgsConstructor;
@@ -38,23 +39,12 @@ public class DeckService {
     private final DeckValidator deckValidator;
     private final UserRepository userRepository;
     private final DeckRepository deckRepository;
+    private final DeckDataService deckDataService;
     private final LocalizationService localizationService;
     private final UserCardRepository userCardRepository;
     private final DeckCardRepository deckCardRepository;
-    private final DeckDataService deckDataService;
+    private final QuestService questService;
 
-    public Mono<Long> initializeCard(long userId) {
-        return giveStarterCard(userId).then(
-                giveDefaultDeck(userId));
-    }
-
-    private Mono<Void> giveStarterCard(long userId) {
-        return deckDataService.getAllCard()
-                .flatMapMany(Flux::fromIterable)
-                .filter(card -> card.getId() >= 1 && card.getId() <= 9)
-                .flatMap(card -> userCardRepository.save(new UserCard(userId, card.getId(), 3)))
-                .then();
-    }
 
     @Transactional(readOnly = true)
     public Mono<Boolean> hasSelectedDeck(long userId) {
@@ -64,7 +54,7 @@ public class DeckService {
 
     @Transactional(readOnly = true)
     public Flux<DeckResponseDto> getDecks(long userId){
-        return deckRepository.findAllByUserId(userId)
+        return questService.checkQuests(userId).thenMany(deckRepository.findAllByUserId(userId)
             .flatMap(deck -> deckCardRepository.findAllByDeckId(deck.getId())
                     .flatMap(deckCard -> Flux.range(0, deckCard.getCount()).map(i -> deckCard.getCardId()))
                     .collectList()
@@ -74,28 +64,7 @@ public class DeckService {
                                 deck.getId(),
                                 deck.getName(),
                                 cardDtos))
-            );
-    }
-
-    private Mono<Long> giveDefaultDeck(long userId) {
-        return Mono.deferContextual(ctx -> {
-                    LocaleContext localeContext = ctx.get(LocaleContext.class);
-                    String defaultName = localizationService.getMessage(localeContext, "string.default.deck");
-                    return Mono.just(new Deck(userId, defaultName));
-                }).flatMap(deckRepository::save)
-                .flatMap(deck ->
-                        Flux.range(1, 9)
-                                .map(Integer::longValue)
-                                .flatMap(cardId -> {
-                                    int count = (cardId == 6L) ? 2 : 1;
-                                    return deckCardRepository.save(new DeckCard(deck.getId(), cardId, count));
-                                })
-                                .then(Mono.just(deck))
-                )
-                .flatMap(deck ->
-                        userRepository.updateSelectedDeck(userId, deck.getId())
-                                .then(Mono.just(deck.getId()))
-                );
+            ));
     }
 
     public Mono<DeckResponseDto> saveDeck(long userId, DeckRequestDto deckRequestDto) {
