@@ -28,3 +28,32 @@ UPDATE cards
 SET unlock_condition_type = 'WIN_COUNT',
     unlock_required_value = 10
 WHERE name = 'Drop';
+
+
+DROP TABLE quests;
+
+CREATE TABLE quests (
+    id BIGSERIAL PRIMARY KEY,
+    progress_checker VARCHAR(31), -- spring bean name (return int progress_value)
+    require_value INT NOT NULL,
+    reward_giver VARCHAR(31) -- spring bean name
+);
+
+DROP TABLE reward_params;
+
+CREATE TABLE reward_params (
+    id BIGSERIAL PRIMARY KEY,
+    quest_id BIGINT REFERENCES quests(id) ON DELETE CASCADE,
+    name VARCHAR(31) NOT NULL,
+    value INT NOT NULL
+);
+
+ALTER TABLE reward_params ADD CONSTRAINT uq_reward_params_quest_id_name UNIQUE (quest_id, name);
+
+
+CREATE TABLE user_quests (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+    quest_id BIGINT REFERENCES quests(id) ON DELETE CASCADE,
+    state VARCHAR(15) NOT NULL DEFAULT 'IN_PROGRESS' -- 'PENDING', 'IN_PROGRESS', 'COMPLETED'
+);
