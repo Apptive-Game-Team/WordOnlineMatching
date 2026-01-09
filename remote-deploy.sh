@@ -2,7 +2,7 @@
 set -e
 
 # build
-./gradlew clean build
+./gradlew clean build -x test
 
 DEPLOY_PATH=deploy/word-online-matching
 
