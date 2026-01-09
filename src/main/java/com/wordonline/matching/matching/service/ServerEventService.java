@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.SignalType;
 import reactor.core.publisher.Sinks;
 import reactor.core.publisher.Sinks.Many;
 
@@ -40,6 +41,7 @@ public class ServerEventService {
         return Flux.merge(many.asFlux(), heartbeatFlux)
                 .doOnCancel(() -> log.info("Client cancelled subscription for user {}", userId))
                 .doFinally(signalType -> {
+                    if (signalType == SignalType.ON_COMPLETE) return;
                     userSinks.remove(userId);
                     if (onFinal != null) {
                         onFinal.accept(userId);
