@@ -1,7 +1,9 @@
 package com.wordonline.matching.matching.service;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 
 import org.springframework.stereotype.Service;
 
@@ -18,11 +20,23 @@ public class ServerEventService {
     private final Map<Long, Many<Object>> userSinks = new ConcurrentHashMap<>();
 
     public Flux<Object> subscribe(Long userId) {
+        return subscribe(userId, null);
+    }
+
+    public Flux<Object> subscribe(Long userId, Consumer<Long> onFinal) {
         Many<Object> many = Sinks.many().unicast().onBackpressureBuffer();
+        Flux<Object> heartbeatFlux = Flux.interval(Duration.ofSeconds(5))
+                .map(tick -> "heartbeat");
         userSinks.put(userId, many);
         log.info("User sink created");
-        return userSinks.get(userId)
-                .asFlux();
+        return Flux.merge(userSinks.get(userId)
+                .asFlux(), heartbeatFlux)
+                .doFinally(signalType -> {
+                    userSinks.remove(userId);
+                    if (onFinal != null) onFinal.accept(userId);
+                    
+                    log.info("User {} sink removed automatically. Reason: {}", userId, signalType);
+                });
     }
 
     public Mono<Void> unsubscribe(long userId) {
