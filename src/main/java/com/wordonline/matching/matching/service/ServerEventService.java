@@ -24,18 +24,27 @@ public class ServerEventService {
     }
 
     public Flux<Object> subscribe(Long userId, Consumer<Long> onFinal) {
+        Many<Object> oldSink = userSinks.remove(userId);
+        if (oldSink != null) {
+            oldSink.tryEmitComplete();
+        }
+
         Many<Object> many = Sinks.many().unicast().onBackpressureBuffer();
+        userSinks.put(userId, many);
+
         Flux<Object> heartbeatFlux = Flux.interval(Duration.ofSeconds(5))
                 .map(tick -> "heartbeat");
-        userSinks.put(userId, many);
-        log.info("User sink created");
-        return Flux.merge(userSinks.get(userId)
-                .asFlux(), heartbeatFlux)
+
+        log.info("User {} sink created", userId);
+
+        return Flux.merge(many.asFlux(), heartbeatFlux)
+                .doOnCancel(() -> log.info("Client cancelled subscription for user {}", userId))
                 .doFinally(signalType -> {
                     userSinks.remove(userId);
-                    if (onFinal != null) onFinal.accept(userId);
-                    
-                    log.info("User {} sink removed automatically. Reason: {}", userId, signalType);
+                    if (onFinal != null) {
+                        onFinal.accept(userId);
+                    }
+                    log.info("User {} sink removed. Reason: {}", userId, signalType);
                 });
     }
 
