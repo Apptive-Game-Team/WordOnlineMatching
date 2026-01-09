@@ -18,21 +18,9 @@ public class User {
     private UserStatus status;
     @Setter
     private Long selectedDeckId;
-
-    // 상태 전환 편의 메서드
-    public void markMatching() {
-        this.status = UserStatus.OnMatching;
-    }
-
-    public void markPlaying() {
-        this.status = UserStatus.OnPlaying;
-    }
-
-    public void markOnline() {
-        this.status = UserStatus.Online;
-    }
+    private Integer totalWins;
 
     public User(long memberId) {
-        this(memberId, UserStatus.Online, null);
+        this(memberId, UserStatus.Online, null, 0);
     }
 }

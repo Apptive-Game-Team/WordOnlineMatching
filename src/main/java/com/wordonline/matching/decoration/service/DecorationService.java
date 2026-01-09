@@ -10,6 +10,7 @@ import com.wordonline.matching.decoration.entity.Decoration;
 import com.wordonline.matching.decoration.entity.UserDecoration;
 import com.wordonline.matching.decoration.repository.DecorationRepository;
 import com.wordonline.matching.decoration.repository.UserDecorationRepository;
+import com.wordonline.matching.quest.service.QuestService;
 
 import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Flux;
@@ -22,16 +23,11 @@ public class DecorationService {
 
     private final DecorationRepository decorationRepository;
     private final UserDecorationRepository userDecorationRepository;
+    private final QuestService questService;
 
     public Flux<DecorationResponse> getDecorationsByUserId(long memberId, boolean equippedOnly) {
-        return userDecorationRepository.existsByUserId(memberId)
-                .flatMapMany(isInitialized -> {
-                    if (isInitialized) {
-                        return findDecorationsByUserId(memberId, equippedOnly);
-                    }
-                    return initDecoration(memberId)
-                            .thenMany(findDecorationsByUserId(memberId, equippedOnly));
-                });
+        return questService.checkQuests(memberId)
+                .thenMany(findDecorationsByUserId(memberId, equippedOnly));
     }
 
     private Flux<DecorationResponse> findDecorationsByUserId(long memberId, boolean equippedOnly) {
@@ -55,27 +51,12 @@ public class DecorationService {
     // ==========
     public Mono<Void> setDecoration(long memberId, DecorationRequest decorationRequest) {
         return mapToDecoType(decorationRequest)
-                .map(decoType -> userDecorationRepository.resetIsEquippedByMemberIdAndDecoType(memberId, decoType))
+                .flatMap(decoType -> userDecorationRepository.resetIsEquippedByMemberIdAndDecoType(memberId, decoType))
                 .then(userDecorationRepository.setIsEquippedByMemberIdAndDecorationId(memberId, decorationRequest.decorationId()));
     }
 
     private Mono<DecoType> mapToDecoType(DecorationRequest decorationRequest) {
         return decorationRepository.findById(decorationRequest.decorationId())
                 .map(Decoration::getDecoType);
-    }
-
-    private Mono<Void> initDecoration(long userId) {
-        return giveAllDecoration(userId)
-                .then(setDecoration(userId, new DecorationRequest(1)))
-                .then(setDecoration(userId, new DecorationRequest(2)))
-                .then();
-    }
-
-    private Mono<Void> giveAllDecoration(long userId) {
-        return decorationRepository.findAll()
-                .map(Decoration::getId)
-                .map(decorationId -> new UserDecoration(null, userId, decorationId, false))
-                .flatMap(userDecorationRepository::save)
-                .then();
     }
 }
