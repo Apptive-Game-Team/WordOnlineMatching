@@ -46,7 +46,12 @@ public class MatchingService {
                 .flatMapMany(isSuccess -> {
                     if (isSuccess) {
                         return Flux.<Object>just(new SimpleMessageDto("Successfully Enqueued"))
-                                .mergeWith(serverEventService.subscribe(userId, finalUserId -> matchingQueue.remove((Long) finalUserId)));
+                                .mergeWith(serverEventService.subscribe(userId, finalUserId -> {
+                                    matchingQueue.remove((Long) finalUserId);
+                                    userService.markOnline(finalUserId)
+                                            .doOnError(e -> log.error("Failed to mark online", e))
+                                            .subscribe();
+                                }));
                     } else {
                         return Flux.just(new SimpleMessageDto("Failed to enqueue user"));
                     }
