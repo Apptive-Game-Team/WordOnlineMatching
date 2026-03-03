@@ -13,6 +13,7 @@ import com.wordonline.matching.auth.repository.UserRepository;
 import com.wordonline.matching.deck.service.DeckInitializer;
 import com.wordonline.matching.deck.service.DeckService;
 import com.wordonline.matching.decoration.service.DecorationInitializer;
+import com.wordonline.matching.magic.service.MagicService;
 import com.wordonline.matching.matching.client.AccountClient;
 import com.wordonline.matching.quest.service.QuestInitializer;
 import com.wordonline.matching.service.LocalizationService;
@@ -35,6 +36,7 @@ public class UserService {
     private final DecorationInitializer decorationInitializer;
     private final AccountClient accountClient;
     private final LocalizationService localizationService;
+    private final MagicService magicService;
 
     public Mono<User> initialUser(long memberId) {
         return userRepository.insertUser(memberId)
@@ -52,6 +54,7 @@ public class UserService {
                         deckInitializer.initializeCard(saveUser.getId())
                                 .flatMap(deckId -> questInitializer.initializeQuests(saveUser.getId())
                                         .then(decorationInitializer.initialize(saveUser.getId()))
+                                        .then(magicService.giveDefaultMagics(saveUser.getId()))
                                         .thenReturn(deckId))
                                 .map(deckId -> Tuples.of(saveUser, deckId))
                 ).flatMap(tuple -> {
