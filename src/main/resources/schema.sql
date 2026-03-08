@@ -57,3 +57,38 @@ CREATE TABLE user_quests (
     quest_id BIGINT REFERENCES quests(id) ON DELETE CASCADE,
     state VARCHAR(15) NOT NULL DEFAULT 'IN_PROGRESS' -- 'PENDING', 'IN_PROGRESS', 'COMPLETED'
 );
+
+CREATE TABLE adventures (
+    id BIGSERIAL PRIMARY KEY
+);
+
+CREATE TABLE stages (
+    id BIGSERIAL PRIMARY KEY,
+    adventure_id BIGINT REFERENCES adventures(id) ON DELETE CASCADE
+);
+
+CREATE TABLE scenarios (
+    id BIGSERIAL PRIMARY KEY,
+    stage_id BIGINT REFERENCES stages(id) ON DELETE CASCADE
+);
+
+CREATE TABLE user_adventures (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+    adventure_id BIGINT REFERENCES adventures(id) ON DELETE CASCADE,
+    state VARCHAR(10) NOT NULL DEFAULT 'Inactive' -- 'Inactive', 'Active', 'Finished'
+);
+
+CREATE TABLE user_stages (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+    stage_id BIGINT REFERENCES stages(id) ON DELETE CASCADE,
+    state VARCHAR(10) NOT NULL DEFAULT 'Inactive' -- 'Inactive', 'Active', 'Finished'
+);
+
+CREATE TABLE user_scenarios (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+    scenario_id BIGINT REFERENCES scenarios(id) ON DELETE CASCADE,
+    state VARCHAR(10) NOT NULL DEFAULT 'Inactive' -- 'Inactive', 'Active', 'Finished'
+);
