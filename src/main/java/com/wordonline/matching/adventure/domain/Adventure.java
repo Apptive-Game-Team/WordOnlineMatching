@@ -15,4 +15,11 @@ public class Adventure {
 
     @Id
     private Long id;
+
+    private AccessType accessType;
+
+    public boolean is(AccessType accessType) {
+        return accessType == this.accessType;
+    }
 }
+
