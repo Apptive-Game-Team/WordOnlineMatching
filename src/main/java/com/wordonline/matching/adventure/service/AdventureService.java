@@ -46,7 +46,7 @@ public class AdventureService {
     private Mono<AdventureDto> buildAdventureDto(long userId, Adventure adventure) {
         return userAdventureRepository.findByUserIdAndAdventureId(userId, adventure.getId())
                 .map(UserAdventure::getState)
-                .defaultIfEmpty(ContentState.Inactive)
+                .defaultIfEmpty(ContentState.INACTIVE)
                 .flatMap(state -> stageRepository.findAllByAdventureId(adventure.getId())
                         .flatMap(stage -> buildStageDto(userId, stage))
                         .collectList()
@@ -56,7 +56,7 @@ public class AdventureService {
     private Mono<StageDto> buildStageDto(long userId, Stage stage) {
         return userStageRepository.findByUserIdAndStageId(userId, stage.getId())
                 .map(UserStage::getState)
-                .defaultIfEmpty(ContentState.Inactive)
+                .defaultIfEmpty(ContentState.INACTIVE)
                 .flatMap(state -> scenarioRepository.findAllByStageId(stage.getId())
                         .flatMap(scenario -> buildScenarioDto(userId, scenario))
                         .collectList()
@@ -66,7 +66,7 @@ public class AdventureService {
     private Mono<ScenarioDto> buildScenarioDto(long userId, Scenario scenario) {
         return userScenarioRepository.findByUserIdAndScenarioId(userId, scenario.getId())
                 .map(UserScenario::getState)
-                .defaultIfEmpty(ContentState.Inactive)
+                .defaultIfEmpty(ContentState.INACTIVE)
                 .map(state -> new ScenarioDto(scenario.getId(), state.name()));
     }
 
@@ -82,11 +82,11 @@ public class AdventureService {
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Stage not found in adventure")))
                 .flatMap(stage -> userStageRepository.findByUserIdAndStageId(userId, stageId)
                         .switchIfEmpty(Mono.defer(() ->
-                                userStageRepository.save(new UserStage(null, userId, stageId, ContentState.Active))))
+                                userStageRepository.save(new UserStage(null, userId, stageId, ContentState.ACTIVE))))
                         .flatMap(existing -> {
-                            if (existing.getState() == ContentState.Inactive) {
+                            if (existing.getState() == ContentState.INACTIVE) {
                                 return userStageRepository.save(
-                                        new UserStage(existing.getId(), userId, stageId, ContentState.Active));
+                                        new UserStage(existing.getId(), userId, stageId, ContentState.ACTIVE));
                             }
                             return Mono.just(existing);
                         }))
@@ -94,18 +94,21 @@ public class AdventureService {
     }
 
     private Mono<Void> saveUserScenarioFinished(long userId, long scenarioId) {
+        return saveUserScenario(userId, scenarioId, ContentState.FINISHED)
+                .then();
+    }
+
+    private Mono<UserScenario> saveUserScenario(long userId, long scenarioId, ContentState state) {
         return userScenarioRepository.findByUserIdAndScenarioId(userId, scenarioId)
                 .switchIfEmpty(Mono.defer(() ->
-                        userScenarioRepository.save(
-                                new UserScenario(null, userId, scenarioId, ContentState.Finished))))
+                        userScenarioRepository.save(new UserScenario(null, userId, scenarioId, state))))
                 .flatMap(existing -> {
-                    if (existing.getState() != ContentState.Finished) {
+                    if (existing.getState() != state) {
                         return userScenarioRepository.save(
-                                new UserScenario(existing.getId(), userId, scenarioId, ContentState.Finished));
+                                new UserScenario(existing.getId(), userId, scenarioId, state));
                     }
                     return Mono.just(existing);
-                })
-                .then();
+                });
     }
 
     private Mono<Void> checkAndUpdateStageState(long userId, long stageId) {
@@ -114,12 +117,12 @@ public class AdventureService {
                         scenarioRepository.findAllByStageId(stageId)
                                 .flatMap(scenario ->
                                         userScenarioRepository.findByUserIdAndScenarioId(userId, scenario.getId())
-                                                .defaultIfEmpty(new UserScenario(null, userId, scenario.getId(), ContentState.Inactive)))
+                                                .defaultIfEmpty(new UserScenario(null, userId, scenario.getId(), ContentState.INACTIVE)))
                                 .collectList()
                                 .flatMap(userScenarios -> {
                                     boolean allFinished = userScenarios.stream()
-                                            .allMatch(us -> us.getState() == ContentState.Finished);
-                                    ContentState newState = allFinished ? ContentState.Finished : ContentState.Active;
+                                            .allMatch(us -> us.getState() == ContentState.FINISHED);
+                                    ContentState newState = allFinished ? ContentState.FINISHED : ContentState.ACTIVE;
                                     return saveUserStage(userId, stageId, newState)
                                             .then(checkAndUpdateAdventureState(userId, stage.getAdventureId()));
                                 })
@@ -144,16 +147,16 @@ public class AdventureService {
         return stageRepository.findAllByAdventureId(adventureId)
                 .flatMap(stage ->
                         userStageRepository.findByUserIdAndStageId(userId, stage.getId())
-                                .defaultIfEmpty(new UserStage(null, userId, stage.getId(), ContentState.Inactive)))
+                                .defaultIfEmpty(new UserStage(null, userId, stage.getId(), ContentState.INACTIVE)))
                 .collectList()
                 .flatMap(userStages -> {
                     boolean allFinished = userStages.stream()
-                            .allMatch(us -> us.getState() == ContentState.Finished);
+                            .allMatch(us -> us.getState() == ContentState.FINISHED);
                     boolean anyActive = userStages.stream()
-                            .anyMatch(us -> us.getState() == ContentState.Active
-                                    || us.getState() == ContentState.Finished);
-                    ContentState newState = allFinished ? ContentState.Finished
-                            : (anyActive ? ContentState.Active : ContentState.Inactive);
+                            .anyMatch(us -> us.getState() == ContentState.ACTIVE
+                                    || us.getState() == ContentState.FINISHED);
+                    ContentState newState = allFinished ? ContentState.FINISHED
+                            : (anyActive ? ContentState.ACTIVE : ContentState.INACTIVE);
                     return saveUserAdventure(userId, adventureId, newState);
                 });
     }
