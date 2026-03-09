@@ -4,6 +4,7 @@ import com.wordonline.matching.auth.domain.User;
 import com.wordonline.matching.auth.repository.UserRepository;
 import com.wordonline.matching.deck.service.DeckInitializer;
 import com.wordonline.matching.decoration.service.DecorationInitializer;
+import com.wordonline.matching.magic.service.MagicService;
 import com.wordonline.matching.matching.client.AccountClient;
 import com.wordonline.matching.quest.service.QuestInitializer;
 import com.wordonline.matching.service.LocalizationService;
@@ -34,6 +35,8 @@ class UserServiceTest {
     @Mock
     private DecorationInitializer decorationInitializer;
     @Mock
+    private MagicService magicService;
+    @Mock
     private AccountClient accountClient;
     @Mock
     private LocalizationService localizationService;
@@ -52,6 +55,7 @@ class UserServiceTest {
         when(userRepository.findById(userId)).thenReturn(Mono.just(user));
         when(deckInitializer.initializeCard(userId)).thenReturn(Mono.just(deckId));
         when(questInitializer.initializeQuests(userId)).thenReturn(Mono.empty());
+        when(magicService.giveDefaultMagics(userId)).thenReturn(Mono.empty());
         when(decorationInitializer.initialize(userId)).thenReturn(Mono.empty());
 
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
