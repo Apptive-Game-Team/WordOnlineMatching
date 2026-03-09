@@ -38,19 +38,8 @@ public class AdventureController {
             @AuthenticationPrincipal Jwt principalDetails,
             @PathVariable Long adventureId,
             @PathVariable Long stageId) {
-        Long memberId = principalDetails.getClaim("memberId");
-        return adventureService.activateStage(memberId, adventureId, stageId)
-                .thenMany(matchingService.requestPractice(memberId));
-    }
 
-    @PostMapping("/adventures/{adventureId}/stages/{stageId}/scenarios/{scenarioId}/clear")
-    public Mono<ResponseEntity<Void>> clearScenario(
-            @AuthenticationPrincipal Jwt principalDetails,
-            @PathVariable Long adventureId,
-            @PathVariable Long stageId,
-            @PathVariable Long scenarioId) {
-        Long memberId = principalDetails.getClaim("memberId");
-        return adventureService.clearScenario(memberId, stageId, scenarioId)
-                .then(Mono.just(ResponseEntity.<Void>ok().build()));
+        // TODO - connect to game server
+        return null;
     }
 }

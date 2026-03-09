@@ -1,7 +1,5 @@
 package com.wordonline.matching.adventure.service;
 
-import org.springframework.stereotype.Service;
-
 import com.wordonline.matching.adventure.domain.Adventure;
 import com.wordonline.matching.adventure.domain.ContentState;
 import com.wordonline.matching.adventure.domain.Scenario;
@@ -20,8 +18,8 @@ import com.wordonline.matching.adventure.repository.UserAdventureRepository;
 import com.wordonline.matching.adventure.repository.UserScenarioRepository;
 import com.wordonline.matching.adventure.repository.UserStageRepository;
 import com.wordonline.matching.quest.service.QuestService;
-
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
 @Service
@@ -32,15 +30,23 @@ public class AdventureService {
     private final StageRepository stageRepository;
     private final ScenarioRepository scenarioRepository;
     private final UserAdventureRepository userAdventureRepository;
-    private final UserStageRepository userStageRepository;
     private final UserScenarioRepository userScenarioRepository;
+    private final UserStageRepository userStageRepository;
     private final QuestService questService;
+    private final AdventureInitService adventureInitService;
+    private final AdventureProgressService adventureProgressService;
+    private final UserDataService userDataService;
 
     public Mono<AdventuresResponse> getAdventures(long userId) {
         return adventureRepository.findAll()
                 .flatMap(adventure -> buildAdventureDto(userId, adventure))
                 .collectList()
                 .map(AdventuresResponse::new);
+    }
+
+    public Mono<Void> updateUserAdventures(long userId) {
+        return adventureInitService.activateFreeAdventures(userId)
+                .then(adventureProgressService.progressAllAdventures(userId));
     }
 
     private Mono<AdventureDto> buildAdventureDto(long userId, Adventure adventure) {
@@ -71,8 +77,11 @@ public class AdventureService {
     }
 
     public Mono<Void> clearScenario(long userId, long stageId, long scenarioId) {
-        return saveUserScenarioFinished(userId, scenarioId)
-                .then(checkAndUpdateStageState(userId, stageId))
+        return userDataService.saveUserScenario(userId, scenarioId, ContentState.FINISHED).then()
+                .then(stageRepository.findById(stageId)
+                        .flatMap(stage -> adventureProgressService.checkAndActive(userId, stage.getAdventureId()))
+                )
+                .then(adventureProgressService.checkAndUpdateStageState(userId, stageId))
                 .then(questService.checkQuests(userId));
     }
 
@@ -82,96 +91,13 @@ public class AdventureService {
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Stage not found in adventure")))
                 .flatMap(stage -> userStageRepository.findByUserIdAndStageId(userId, stageId)
                         .switchIfEmpty(Mono.defer(() ->
-                                userStageRepository.save(new UserStage(null, userId, stageId, ContentState.ACTIVE))))
+                                userDataService.saveUserStage(userId, stageId, ContentState.ACTIVE).then(Mono.just(new UserStage(null, userId, stageId, ContentState.INACTIVE))))) // A bit of a workaround to fit the old structure
                         .flatMap(existing -> {
                             if (existing.getState() == ContentState.INACTIVE) {
-                                return userStageRepository.save(
-                                        new UserStage(existing.getId(), userId, stageId, ContentState.ACTIVE));
+                                return userDataService.saveUserStage(userId, stageId, ContentState.ACTIVE);
                             }
                             return Mono.just(existing);
                         }))
-                .then();
-    }
-
-    private Mono<Void> saveUserScenarioFinished(long userId, long scenarioId) {
-        return saveUserScenario(userId, scenarioId, ContentState.FINISHED)
-                .then();
-    }
-
-    private Mono<UserScenario> saveUserScenario(long userId, long scenarioId, ContentState state) {
-        return userScenarioRepository.findByUserIdAndScenarioId(userId, scenarioId)
-                .switchIfEmpty(Mono.defer(() ->
-                        userScenarioRepository.save(new UserScenario(null, userId, scenarioId, state))))
-                .flatMap(existing -> {
-                    if (existing.getState() != state) {
-                        return userScenarioRepository.save(
-                                new UserScenario(existing.getId(), userId, scenarioId, state));
-                    }
-                    return Mono.just(existing);
-                });
-    }
-
-    private Mono<Void> checkAndUpdateStageState(long userId, long stageId) {
-        return stageRepository.findById(stageId)
-                .flatMap(stage ->
-                        scenarioRepository.findAllByStageId(stageId)
-                                .flatMap(scenario ->
-                                        userScenarioRepository.findByUserIdAndScenarioId(userId, scenario.getId())
-                                                .defaultIfEmpty(new UserScenario(null, userId, scenario.getId(), ContentState.INACTIVE)))
-                                .collectList()
-                                .flatMap(userScenarios -> {
-                                    boolean allFinished = userScenarios.stream()
-                                            .allMatch(us -> us.getState() == ContentState.FINISHED);
-                                    ContentState newState = allFinished ? ContentState.FINISHED : ContentState.ACTIVE;
-                                    return saveUserStage(userId, stageId, newState)
-                                            .then(checkAndUpdateAdventureState(userId, stage.getAdventureId()));
-                                })
-                );
-    }
-
-    private Mono<Void> saveUserStage(long userId, long stageId, ContentState state) {
-        return userStageRepository.findByUserIdAndStageId(userId, stageId)
-                .switchIfEmpty(Mono.defer(() ->
-                        userStageRepository.save(new UserStage(null, userId, stageId, state))))
-                .flatMap(existing -> {
-                    if (existing.getState() != state) {
-                        return userStageRepository.save(
-                                new UserStage(existing.getId(), userId, stageId, state));
-                    }
-                    return Mono.just(existing);
-                })
-                .then();
-    }
-
-    private Mono<Void> checkAndUpdateAdventureState(long userId, long adventureId) {
-        return stageRepository.findAllByAdventureId(adventureId)
-                .flatMap(stage ->
-                        userStageRepository.findByUserIdAndStageId(userId, stage.getId())
-                                .defaultIfEmpty(new UserStage(null, userId, stage.getId(), ContentState.INACTIVE)))
-                .collectList()
-                .flatMap(userStages -> {
-                    boolean allFinished = userStages.stream()
-                            .allMatch(us -> us.getState() == ContentState.FINISHED);
-                    boolean anyActive = userStages.stream()
-                            .anyMatch(us -> us.getState() == ContentState.ACTIVE
-                                    || us.getState() == ContentState.FINISHED);
-                    ContentState newState = allFinished ? ContentState.FINISHED
-                            : (anyActive ? ContentState.ACTIVE : ContentState.INACTIVE);
-                    return saveUserAdventure(userId, adventureId, newState);
-                });
-    }
-
-    private Mono<Void> saveUserAdventure(long userId, long adventureId, ContentState state) {
-        return userAdventureRepository.findByUserIdAndAdventureId(userId, adventureId)
-                .switchIfEmpty(Mono.defer(() ->
-                        userAdventureRepository.save(new UserAdventure(null, userId, adventureId, state))))
-                .flatMap(existing -> {
-                    if (existing.getState() != state) {
-                        return userAdventureRepository.save(
-                                new UserAdventure(existing.getId(), userId, adventureId, state));
-                    }
-                    return Mono.just(existing);
-                })
                 .then();
     }
 }
