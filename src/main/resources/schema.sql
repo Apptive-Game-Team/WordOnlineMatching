@@ -1,3 +1,4 @@
+-- Decoration
 CREATE TABLE decorations (
     id BIGSERIAL PRIMARY KEY,
     deco_type VARCHAR(10) NOT NULL , -- Hat, Cape
@@ -12,6 +13,8 @@ CREATE TABLE user_decorations (
 
 ALTER TABLE user_decorations ADD COLUMN is_equipped BOOLEAN DEFAULT FALSE;
 
+
+-- Quest & Reward
 ALTER TABLE cards
     ADD COLUMN IF NOT EXISTS unlock_condition_type VARCHAR(31),
     ADD COLUMN IF NOT EXISTS unlock_required_value INT;
@@ -28,7 +31,6 @@ UPDATE cards
 SET unlock_condition_type = 'WIN_COUNT',
     unlock_required_value = 10
 WHERE name = 'Drop';
-
 
 DROP TABLE quests;
 
@@ -50,7 +52,6 @@ CREATE TABLE reward_params (
 
 ALTER TABLE reward_params ADD CONSTRAINT uq_reward_params_quest_id_name UNIQUE (quest_id, name);
 
-
 CREATE TABLE user_quests (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
@@ -58,8 +59,12 @@ CREATE TABLE user_quests (
     state VARCHAR(15) NOT NULL DEFAULT 'IN_PROGRESS' -- 'PENDING', 'IN_PROGRESS', 'COMPLETED'
 );
 
+
+-- Adventure
 CREATE TABLE adventures (
-    id BIGSERIAL PRIMARY KEY
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(31) NOT NULL,
+    access_type VARCHAR(10) NOT NULL DEFAULT 'FREE'
 );
 
 CREATE TABLE stages (
@@ -76,19 +81,19 @@ CREATE TABLE user_adventures (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
     adventure_id BIGINT REFERENCES adventures(id) ON DELETE CASCADE,
-    state VARCHAR(10) NOT NULL DEFAULT 'Inactive' -- 'Inactive', 'Active', 'Finished'
+    state VARCHAR(10) NOT NULL DEFAULT 'INACTIVE' -- 'INACTIVE', 'ACTIVE', 'FINISHED'
 );
 
 CREATE TABLE user_stages (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
     stage_id BIGINT REFERENCES stages(id) ON DELETE CASCADE,
-    state VARCHAR(10) NOT NULL DEFAULT 'Inactive' -- 'Inactive', 'Active', 'Finished'
+    state VARCHAR(10) NOT NULL DEFAULT 'INACTIVE' -- 'INACTIVE', 'ACTIVE', 'FINISHED'
 );
 
 CREATE TABLE user_scenarios (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
     scenario_id BIGINT REFERENCES scenarios(id) ON DELETE CASCADE,
-    state VARCHAR(10) NOT NULL DEFAULT 'Inactive' -- 'Inactive', 'Active', 'Finished'
+    state VARCHAR(10) NOT NULL DEFAULT 'INACTIVE' -- 'INACTIVE', 'ACTIVE', 'FINISHED'
 );
