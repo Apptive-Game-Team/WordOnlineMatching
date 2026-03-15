@@ -97,3 +97,23 @@ CREATE TABLE user_scenarios (
     scenario_id BIGINT REFERENCES scenarios(id) ON DELETE CASCADE,
     state VARCHAR(10) NOT NULL DEFAULT 'INACTIVE' -- 'INACTIVE', 'ACTIVE', 'FINISHED'
 );
+
+
+-- parameter versioning
+ALTER TABLE parameter_values
+    ADD COLUMN updated_at TIMESTAMP DEFAULT NOW();
+
+CREATE INDEX idx_parameter_values_updated_at ON parameter_values(updated_at);
+
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+    RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_parameter_values_modtime
+    BEFORE UPDATE ON parameter_values
+    FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
