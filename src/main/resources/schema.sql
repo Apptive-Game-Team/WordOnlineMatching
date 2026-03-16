@@ -117,3 +117,15 @@ CREATE TRIGGER update_parameter_values_modtime
     BEFORE UPDATE ON parameter_values
     FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
+
+
+-- magic cards versioning
+ALTER TABLE magic_cards
+    ADD COLUMN updated_at TIMESTAMP DEFAULT NOW();
+
+CREATE INDEX idx_magic_cards_updated_at ON magic_cards(updated_at);
+
+CREATE TRIGGER update_magic_cards_modtime
+    BEFORE UPDATE ON magic_cards
+    FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
