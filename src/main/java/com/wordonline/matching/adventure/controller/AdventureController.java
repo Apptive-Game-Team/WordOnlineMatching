@@ -1,12 +1,10 @@
 package com.wordonline.matching.adventure.controller;
 
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -32,14 +30,12 @@ public class AdventureController {
         return adventureService.getAdventures(memberId);
     }
 
-    @GetMapping(value = "/adventures/{adventureId}/stages/{stageId}/play",
+    @GetMapping(value = "/scenarios/{scenarioId}/play",
             produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<Object> playStage(
             @AuthenticationPrincipal Jwt principalDetails,
-            @PathVariable Long adventureId,
-            @PathVariable Long stageId) {
-
-        // TODO - connect to game server
-        return null;
+            @PathVariable Long scenarioId) {
+        Long memberId = principalDetails.getClaim("memberId");
+        return matchingService.requestPVE(memberId, scenarioId);
     }
 }

@@ -59,14 +59,22 @@ public class MatchingService {
     }
 
     public Flux<Object> requestPractice(long userId) {
+        SessionDto sessionDto = SessionDto.Practice("bot-" + sessionIdCounter.incrementAndGet(), userId, botMemberMaker.getRandomBotMemberId());
+        return requestSession(userId, sessionDto);
+    }
 
+    public Flux<Object> requestPVE(long userId, long scenarioId) {
+        SessionDto sessionDto = SessionDto.PVE("pve-" + sessionIdCounter.incrementAndGet(), userId, scenarioId);
+        return requestSession(userId, sessionDto);
+    }
+
+    public Flux<Object> requestSession(long userId, SessionDto sessionDto) {
         Flux<Object> userFlux = serverEventService.subscribe(userId);
-
         matchingQueue.remove(userId);
 
         Mono.empty()
                 .then(Mono.delay(Duration.ofSeconds(1))
-                .then(matchPractice(userId)))
+                .then(matchBySessionDto(sessionDto)))
                 .subscribe();
 
         return Flux.<Object>just(new SimpleMessageDto("Successfully Enqueued"))
@@ -129,9 +137,9 @@ public class MatchingService {
         return createSession(sessionId, uid1, uid2);
     }
 
-    public Mono<Boolean> matchPractice(long userId) {
+    public Mono<Boolean> matchBySessionDto(SessionDto sessionDto) {
         return Mono.empty()
-                .then(createSession(sessionIdCounter.incrementAndGet(), userId, botMemberMaker.getRandomBotMemberId()))
+                .then(createSession(sessionDto))
                 .map(isSuccess -> {
                     log.info("[Practice] Trying to create session {}", isSuccess);
                     return isSuccess;
@@ -143,25 +151,32 @@ public class MatchingService {
     }
 
     private Mono<Boolean> createSession(long sessionId, long uid1, long uid2) {
-        SessionDto sessionDto = new SessionDto("session-" + sessionId, uid1, uid2);
+        return createSession("session-" + sessionId, uid1, uid2);
+    }
 
+    private Mono<Boolean> createSession(String sessionId, long uid1, long uid2) {
+        SessionDto sessionDto = SessionDto.from(sessionId, uid1, uid2);
+        return createSession(sessionDto);
+    }
+
+    private Mono<Boolean> createSession(SessionDto sessionDto) {
         return gameMatchService.createSession(sessionDto)
                 .flatMap(matchedInfoDto -> Mono.zip(
-                                userService.markPlaying(uid1),
-                                userService.markPlaying(uid2))
+                                userService.markPlaying(sessionDto.uid1()),
+                                userService.markPlaying(sessionDto.uid2()))
                         .thenReturn(matchedInfoDto))
                 .flatMap(matchedInfoDto -> {
-                    log.info("[Session] Session created: {}, uid1: {}, uid2: {}", sessionId, uid1, uid2);
+                    log.info("[Session] Session created: {}, uid1: {}, uid2: {}", sessionDto.sessionId(), sessionDto.uid1(), sessionDto.uid2());
                     return Mono.zip(
-                                    serverEventService.send(uid1, matchedInfoDto),
-                                    serverEventService.send(uid2, matchedInfoDto))
+                                    serverEventService.send(sessionDto.uid1(), matchedInfoDto),
+                                    serverEventService.send(sessionDto.uid2(), matchedInfoDto))
                             .thenReturn(true);
                 })
                 .onErrorResume(e -> {
                             log.error("Failed to create session", e);
                             return Mono.zip(
-                                    userService.markOnline(uid1),
-                                    userService.markOnline(uid2)
+                                    userService.markOnline(sessionDto.uid1()),
+                                    userService.markOnline(sessionDto.uid2())
                             ).thenReturn(false);
                         }
                 );
