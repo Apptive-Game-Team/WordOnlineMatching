@@ -27,7 +27,8 @@ public class AdventureController {
     @GetMapping("/adventures")
     public Mono<AdventuresResponse> getAdventures(@AuthenticationPrincipal Jwt principalDetails) {
         Long memberId = principalDetails.getClaim("memberId");
-        return adventureService.getAdventures(memberId);
+        return adventureService.updateUserAdventures(memberId)
+                        .then(adventureService.getAdventures(memberId));
     }
 
     @GetMapping(value = "/scenarios/{scenarioId}/play",

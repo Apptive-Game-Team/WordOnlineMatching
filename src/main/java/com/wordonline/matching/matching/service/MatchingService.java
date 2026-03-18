@@ -75,6 +75,10 @@ public class MatchingService {
         Mono.empty()
                 .then(Mono.delay(Duration.ofSeconds(1))
                 .then(matchBySessionDto(sessionDto)))
+                .flatMap(isSuccess -> {
+                    if (!isSuccess) return serverEventService.send(userId,new SimpleMessageDto("Failed to match"));
+                    return Mono.empty();
+                })
                 .subscribe();
 
         return Flux.<Object>just(new SimpleMessageDto("Successfully Enqueued"))

@@ -97,30 +97,6 @@ class AdventureServiceTest {
                 )
                 .verifyComplete();
     }
-
-    @Test
-    @DisplayName("시나리오_클리어_성공")
-    void clearScenario_CallsServicesInOrder() {
-        long userId = 1L;
-        long stageId = 1L;
-        long scenarioId = 1L;
-
-        when(userDataService.saveUserScenario(userId, scenarioId, ContentState.FINISHED))
-                .thenReturn(Mono.just(new UserScenario()));
-        when(stageRepository.findById(stageId)).thenReturn(Mono.just(stage));
-        when(adventureProgressService.checkAndActive(userId, adventure.getId())).thenReturn(Mono.empty());
-        when(adventureProgressService.checkAndUpdateStageState(userId, stageId)).thenReturn(Mono.empty());
-        when(questService.checkQuests(userId)).thenReturn(Mono.empty());
-
-        Mono<Void> result = adventureService.clearScenario(userId, stageId, scenarioId);
-
-        StepVerifier.create(result).verifyComplete();
-
-        verify(userDataService).saveUserScenario(userId, scenarioId, ContentState.FINISHED);
-        verify(adventureProgressService).checkAndActive(userId, adventure.getId());
-        verify(adventureProgressService).checkAndUpdateStageState(userId, stageId);
-        verify(questService).checkQuests(userId);
-    }
     
     @Test
     @DisplayName("유저_어드벤처_업데이트_성공")
@@ -136,24 +112,5 @@ class AdventureServiceTest {
         
         verify(adventureInitService).activateFreeAdventures(userId);
         verify(adventureProgressService).progressAllAdventures(userId);
-    }
-
-    @Test
-    @DisplayName("스테이지_활성화_성공")
-    void activateStage_CallsUserDataService() {
-        long userId = 1L;
-        long adventureId = 1L;
-        long stageId = 1L;
-
-        when(stageRepository.findById(stageId)).thenReturn(Mono.just(stage));
-        when(userStageRepository.findByUserIdAndStageId(userId, stageId))
-                .thenReturn(Mono.just(new UserStage(1L, userId, stageId, ContentState.INACTIVE)));
-        when(userDataService.saveUserStage(userId, stageId, ContentState.ACTIVE)).thenReturn(Mono.empty());
-
-        Mono<Void> result = adventureService.activateStage(userId, adventureId, stageId);
-
-        StepVerifier.create(result).verifyComplete();
-
-        verify(userDataService).saveUserStage(userId, stageId, ContentState.ACTIVE);
     }
 }

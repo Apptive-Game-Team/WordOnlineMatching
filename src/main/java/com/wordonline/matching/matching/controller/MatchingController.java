@@ -34,7 +34,7 @@ public class MatchingController {
     @GetMapping(value = "/api/match/practice/me", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<Object> matchPractice(@AuthenticationPrincipal Jwt principalDetails) {
         Long memberId = principalDetails.getClaim("memberId");
-        return matchingService.requestSession(memberId);
+        return matchingService.requestPractice(memberId);
     }
 
     @GetMapping("/api/match/queue/me/exist")

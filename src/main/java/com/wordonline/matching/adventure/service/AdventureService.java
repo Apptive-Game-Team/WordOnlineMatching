@@ -32,10 +32,8 @@ public class AdventureService {
     private final UserAdventureRepository userAdventureRepository;
     private final UserScenarioRepository userScenarioRepository;
     private final UserStageRepository userStageRepository;
-    private final QuestService questService;
     private final AdventureInitService adventureInitService;
     private final AdventureProgressService adventureProgressService;
-    private final UserDataService userDataService;
 
     public Mono<AdventuresResponse> getAdventures(long userId) {
         return adventureRepository.findAll()
@@ -74,30 +72,5 @@ public class AdventureService {
                 .map(UserScenario::getState)
                 .defaultIfEmpty(ContentState.INACTIVE)
                 .map(state -> new ScenarioDto(scenario.getId(), state.name()));
-    }
-
-    public Mono<Void> clearScenario(long userId, long stageId, long scenarioId) {
-        return userDataService.saveUserScenario(userId, scenarioId, ContentState.FINISHED).then()
-                .then(stageRepository.findById(stageId)
-                        .flatMap(stage -> adventureProgressService.checkAndActive(userId, stage.getAdventureId()))
-                )
-                .then(adventureProgressService.checkAndUpdateStageState(userId, stageId))
-                .then(questService.checkQuests(userId));
-    }
-
-    public Mono<Void> activateStage(long userId, long adventureId, long stageId) {
-        return stageRepository.findById(stageId)
-                .filter(stage -> adventureId == stage.getAdventureId())
-                .switchIfEmpty(Mono.error(new IllegalArgumentException("Stage not found in adventure")))
-                .flatMap(stage -> userStageRepository.findByUserIdAndStageId(userId, stageId)
-                        .switchIfEmpty(Mono.defer(() ->
-                                userDataService.saveUserStage(userId, stageId, ContentState.ACTIVE).then(Mono.just(new UserStage(null, userId, stageId, ContentState.INACTIVE))))) // A bit of a workaround to fit the old structure
-                        .flatMap(existing -> {
-                            if (existing.getState() == ContentState.INACTIVE) {
-                                return userDataService.saveUserStage(userId, stageId, ContentState.ACTIVE);
-                            }
-                            return Mono.just(existing);
-                        }))
-                .then();
     }
 }
