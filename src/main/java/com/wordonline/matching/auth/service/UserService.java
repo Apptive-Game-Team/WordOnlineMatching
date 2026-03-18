@@ -69,7 +69,7 @@ public class UserService {
                 .map(UserResponseDto::new);
     }
 
-    public Mono<UserDetailResponseDto> getUserDetail(long memberId) {
+    public Mono<UserDetailResponseDto> getUserDetail(Long memberId) {
         return accountClient.getMember(memberId)
                 .map(accountMemberResponseDto -> {
                     log.info(accountMemberResponseDto.toString());
