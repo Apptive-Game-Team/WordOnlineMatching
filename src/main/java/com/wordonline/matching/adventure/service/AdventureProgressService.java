@@ -12,10 +12,12 @@ import com.wordonline.matching.adventure.repository.UserStageRepository;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AdventureProgressService {
@@ -35,20 +37,29 @@ public class AdventureProgressService {
     }
 
     public Mono<Void> progressAllAdventures(long userId) {
+        log.debug("Start progressing all adventures for user: {}", userId);
+
         Mono<Void> updateAndActiveAll = userAdventureRepository.findAllByUserId(userId)
-                .flatMap(userAdventure -> checkAndActive(userId, userAdventure.getAdventureId()))
+                .flatMap(userAdventure -> {
+                    return checkAndActive(userId, userAdventure.getAdventureId());
+                })
                 .then();
 
         Mono<Void> checkAndUpdateAll = userStageRepository.findAllByUserId(userId)
                 .map(UserStage::getStageId)
-                .flatMap(stageId -> checkAndUpdateStageState(userId, stageId))
+                .flatMap(stageId -> {
+                    log.debug("Checking and updating stage state for stage: {} for user: {}", stageId, userId);
+                    return checkAndUpdateStageState(userId, stageId);
+                })
                 .then();
 
-        return updateAndActiveAll.then(checkAndUpdateAll);
+        return updateAndActiveAll.then(checkAndUpdateAll)
+                .doOnSuccess(aVoid -> log.debug("Finished progressing all adventures for user: {}", userId));
     }
 
 
     public Mono<Void> checkAndActive(long userId, long adventureId) {
+        log.debug("Checking and activating adventure: {} for user: {}", adventureId, userId);
         Flux<Scenario> allScenarios = stageRepository.findAllByAdventureIdOrderByIdAsc(adventureId)
                 .flatMap(stage -> scenarioRepository.findAllByStageIdOrderByIdAsc(stage.getId()));
 
@@ -59,31 +70,46 @@ public class AdventureProgressService {
                 )
                 .collectList()
                 .flatMap(userScenarioStates -> {
-                    int lastFinishedIndex = -1;
+                    log.debug("Collected {} scenario states for user: {} in adventure: {}", userScenarioStates.size(), userId, adventureId);
+
+                    int firstNonFinishedIndex = -1;
                     for (int i = 0; i < userScenarioStates.size(); i++) {
-                        if (userScenarioStates.get(i).getState() == ContentState.FINISHED) {
-                            lastFinishedIndex = i;
+                        if (userScenarioStates.get(i).getState() != ContentState.FINISHED) {
+                            firstNonFinishedIndex = i;
+                            break;
                         }
                     }
 
-                    if (lastFinishedIndex + 1 < userScenarioStates.size()) {
-                        UserScenarioState toActivate = userScenarioStates.get(lastFinishedIndex + 1);
+                    // 모든 시나리오가 끝났거나, 진행할 시나리오가 없는 경우
+                    if (firstNonFinishedIndex == -1) {
+                        log.debug("All scenarios finished or no scenarios to process for user: {} in adventure: {}", userId, adventureId);
+                        return Mono.empty();
+                    }
 
-                        if (toActivate.getState() == ContentState.INACTIVE) {
-                            Mono<Void> activateScenarioMono = userDataService.saveUserScenario(userId, toActivate.getScenario().getId(), ContentState.ACTIVE).then();
+                    // 첫 번째로 FINISHED가 아닌 시나리오를 가져옴
+                    UserScenarioState toActivate = userScenarioStates.get(firstNonFinishedIndex);
+                    log.debug("First non-finished scenario is at index {} with state: {} for user: {} in adventure: {}",
+                            firstNonFinishedIndex, toActivate.getState(), userId, adventureId);
 
-                            long stageIdToEnsureActive = toActivate.getScenario().getStageId();
-                            Mono<Void> activateStageMono = userStageRepository.findByUserIdAndStageId(userId, stageIdToEnsureActive)
-                                    .defaultIfEmpty(new UserStage(null, userId, stageIdToEnsureActive, ContentState.INACTIVE))
-                                    .flatMap(userStage -> {
-                                        if (userStage.getState() == ContentState.INACTIVE) {
-                                            return userDataService.saveUserStage(userId, stageIdToEnsureActive, ContentState.ACTIVE);
-                                        }
-                                        return Mono.empty();
-                                    }).then();
+                    // 해당 시나리오가 INACTIVE이고, 이전 시나리오가 존재하며 FINISHED 상태일 때만 활성화
+                    // firstNonFinishedIndex > 0 라는 것은 이전에 FINISHED 시나리오가 하나 이상 있다는 의미
+                    if (toActivate.getState() == ContentState.INACTIVE && firstNonFinishedIndex > 0) {
+                        log.debug("Activating scenario: {} for user: {}", toActivate.getScenario().getId(), userId);
+                        Mono<Void> activateScenarioMono = userDataService.saveUserScenario(userId, toActivate.getScenario().getId(), ContentState.ACTIVE).then();
 
-                            return activateScenarioMono.then(activateStageMono);
-                        }
+                        long stageIdToEnsureActive = toActivate.getScenario().getStageId();
+                        log.debug("Ensuring stage: {} is active for user: {}", stageIdToEnsureActive, userId);
+                        Mono<Void> activateStageMono = userStageRepository.findByUserIdAndStageId(userId, stageIdToEnsureActive)
+                                .defaultIfEmpty(new UserStage(null, userId, stageIdToEnsureActive, ContentState.INACTIVE))
+                                .flatMap(userStage -> {
+                                    if (userStage.getState() == ContentState.INACTIVE) {
+                                        log.debug("Activating stage: {} for user: {}", stageIdToEnsureActive, userId);
+                                        return userDataService.saveUserStage(userId, stageIdToEnsureActive, ContentState.ACTIVE);
+                                    }
+                                    return Mono.empty();
+                                }).then();
+
+                        return activateScenarioMono.then(activateStageMono);
                     }
 
                     return Mono.empty();
@@ -91,6 +117,7 @@ public class AdventureProgressService {
     }
 
     public Mono<Void> checkAndUpdateStageState(long userId, long stageId) {
+        log.debug("Checking and updating state for stage: {} for user: {}", stageId, userId);
         return stageRepository.findById(stageId)
                 .flatMap(stage ->
                         scenarioRepository.findAllByStageId(stageId)
@@ -102,6 +129,7 @@ public class AdventureProgressService {
                                     boolean allFinished = userScenarios.stream()
                                             .allMatch(us -> us.getState() == ContentState.FINISHED);
                                     ContentState newState = allFinished ? ContentState.FINISHED : ContentState.ACTIVE;
+                                    log.debug("Updating stage: {} for user: {} to state: {}", stageId, userId, newState);
                                     return userDataService.saveUserStage(userId, stageId, newState)
                                             .then(checkAndUpdateAdventureState(userId, stage.getAdventureId()));
                                 })
@@ -109,6 +137,7 @@ public class AdventureProgressService {
     }
 
     private Mono<Void> checkAndUpdateAdventureState(long userId, long adventureId) {
+        log.debug("Checking and updating state for adventure: {} for user: {}", adventureId, userId);
         return stageRepository.findAllByAdventureId(adventureId)
                 .flatMap(stage ->
                         userStageRepository.findByUserIdAndStageId(userId, stage.getId())
@@ -122,6 +151,7 @@ public class AdventureProgressService {
                                     || us.getState() == ContentState.FINISHED);
                     ContentState newState = allFinished ? ContentState.FINISHED
                             : (anyActive ? ContentState.ACTIVE : ContentState.INACTIVE);
+                    log.debug("Updating adventure: {} for user: {} to state: {}", adventureId, userId, newState);
                     return userDataService.saveUserAdventure(userId, adventureId, newState);
                 });
     }

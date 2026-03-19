@@ -59,9 +59,9 @@ public class ServerEventService {
         return Mono.just(0).then();
     }
 
-    public Mono<Boolean> send(long userId, Object data) {
+    public Mono<Boolean> send(Long userId, Object data) {
         log.info("[Practice] Sending user id: {}", userId);
-        if (userId < 0) {
+        if (userId == null || userId < 0) {
             return Mono.just(true);
         }
         if (userSinks.containsKey(userId)) {

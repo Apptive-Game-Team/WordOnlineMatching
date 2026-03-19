@@ -87,10 +87,10 @@ public class GameMatchService {
                         ));
     }
 
-    private Mono<Tuple2<UserDetailResponseDto, UserDetailResponseDto>> getUserDetails(long userId1, long userId2) {
+    private Mono<Tuple2<UserDetailResponseDto, UserDetailResponseDto>> getUserDetails(long userId1, Long userId2) {
         return Mono.zip(
                 userService.getUserDetail(userId1),
-                userService.getUserDetail(userId2)
+                userId2 != null ? userService.getUserDetail(userId2) : Mono.just(new UserDetailResponseDto(0L, "dummy", "dummy@team6515.com"))
         );
     }
 

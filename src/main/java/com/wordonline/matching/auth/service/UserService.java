@@ -69,7 +69,7 @@ public class UserService {
                 .map(UserResponseDto::new);
     }
 
-    public Mono<UserDetailResponseDto> getUserDetail(long memberId) {
+    public Mono<UserDetailResponseDto> getUserDetail(Long memberId) {
         return accountClient.getMember(memberId)
                 .map(accountMemberResponseDto -> {
                     log.info(accountMemberResponseDto.toString());
@@ -98,8 +98,8 @@ public class UserService {
         });
     }
 
-    public Mono<Void> markMatching(long userId) {
-        if (userId < 0) {
+    public Mono<Void> markMatching(Long userId) {
+        if (userId == null || userId < 0){
             return Mono.empty();
         }
 
@@ -107,8 +107,8 @@ public class UserService {
                 .then();
     }
 
-    public Mono<Void> markPlaying(long userId) {
-        if (userId < 0){
+    public Mono<Void> markPlaying(Long userId) {
+        if (userId == null || userId < 0){
             return Mono.empty();
         }
 
@@ -116,17 +116,17 @@ public class UserService {
                 .then();
     }
 
-    public Mono<Void> markOnline(long userId) {
-        if (userId < 0){
-            return Mono.just(0).then();
+    public Mono<Void> markOnline(Long userId) {
+        if (userId == null || userId < 0){
+            return Mono.empty();
         }
 
         return userRepository.updateStatus(userId, UserStatus.Online)
                 .then();
     }
 
-    public Mono<UserStatus> getStatus(long userId) {
-        if (userId < 0){
+    public Mono<UserStatus> getStatus(Long userId) {
+        if (userId == null || userId < 0){
             return Mono.empty();
         }
 

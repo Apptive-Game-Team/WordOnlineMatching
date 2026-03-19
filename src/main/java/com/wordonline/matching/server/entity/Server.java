@@ -17,6 +17,10 @@ public class Server {
     private ServerState state;
     private ServerType type;
 
+    public boolean isLocal() {
+        return domain.equals("localhost") || domain.equals("127.0.0.1");
+    }
+
     public String getUrl() {
         if (protocol == null || domain == null || port == null) {
             throw new IllegalStateException("Server protocol, domain, and port must not be null");
