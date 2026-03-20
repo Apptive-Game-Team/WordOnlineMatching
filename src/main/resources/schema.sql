@@ -129,3 +129,8 @@ CREATE TRIGGER update_magic_cards_modtime
     BEFORE UPDATE ON magic_cards
     FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
+
+ALTER TABLE user_cards DROP CONSTRAINT user_cards_user_id_fkey;
+ALTER TABLE decks DROP CONSTRAINT decks_user_id_fkey;
+ALTER TABLE user_adventures DROP CONSTRAINT user_adventures_user_id_fkey;
+ALTER TABLE user_stages DROP CONSTRAINT user_stages_user_id_fkey;
