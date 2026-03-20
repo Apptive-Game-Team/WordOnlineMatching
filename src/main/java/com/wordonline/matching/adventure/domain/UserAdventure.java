@@ -6,6 +6,7 @@ import org.springframework.data.relational.core.mapping.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Getter
 @NoArgsConstructor
@@ -17,5 +18,6 @@ public class UserAdventure {
     private Long id;
     private Long userId;
     private Long adventureId;
+    @Setter
     private ContentState state;
 }

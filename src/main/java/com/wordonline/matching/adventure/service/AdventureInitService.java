@@ -39,8 +39,8 @@ public class AdventureInitService {
     }
 
     private Mono<Void> saveAdventure(long userId, UserAdventure inactiveUserAdventure) {
-        log.debug("Saving adventure: {} for user: {}", inactiveUserAdventure.getId(), userId);
-        return userDataService.saveUserAdventure(userId, inactiveUserAdventure.getId(), ContentState.ACTIVE)
+        inactiveUserAdventure.setState(ContentState.ACTIVE);
+        return userAdventureRepository.save(inactiveUserAdventure)
                 .then(stageRepository.findAllByAdventureIdOrderByIdAsc(inactiveUserAdventure.getId()).next()
                         .flatMap(firstStage -> {
                                     log.debug("Saving first stage: {} for user: {}", firstStage.getId(), userId);
