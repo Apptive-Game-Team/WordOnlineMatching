@@ -30,8 +30,6 @@ import reactor.util.function.Tuples;
 public class UserService {
 
     private final UserRepository userRepository;
-    private final DeckService deckService;
-    private final DeckInitializer deckInitializer;
     private final QuestInitializer questInitializer;
     private final DecorationInitializer decorationInitializer;
     private final AccountClient accountClient;
@@ -51,16 +49,11 @@ public class UserService {
                         );
                     })
                 ).flatMap(saveUser ->
-                        deckInitializer.initializeCard(saveUser.getId())
-                                .flatMap(deckId -> questInitializer.initializeQuests(saveUser.getId())
+                                questInitializer.initializeQuests(saveUser.getId())
                                         .then(decorationInitializer.initialize(saveUser.getId()))
                                         .then(magicService.giveDefaultMagics(saveUser.getId()))
-                                        .thenReturn(deckId))
-                                .map(deckId -> Tuples.of(saveUser, deckId))
-                ).flatMap(tuple -> {
-                    tuple.getT1().setSelectedDeckId(tuple.getT2());
-                    return userRepository.save(tuple.getT1());
-                });
+                                        .thenReturn(saveUser)
+                ).flatMap(userRepository::save);
     }
 
     public Mono<UserResponseDto> getUser(long memberId) {

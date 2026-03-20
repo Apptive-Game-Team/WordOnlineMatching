@@ -43,7 +43,7 @@ public class DeckService {
     private final LocalizationService localizationService;
     private final UserCardRepository userCardRepository;
     private final DeckCardRepository deckCardRepository;
-    private final QuestService questService;
+    private final DeckInitializer deckInitializer;
 
     @Transactional(readOnly = true)
     public Mono<Boolean> hasSelectedDeck(long userId) {
@@ -53,17 +53,23 @@ public class DeckService {
 
     @Transactional
     public Flux<DeckResponseDto> getDecks(long userId){
-        return questService.checkQuests(userId).thenMany(deckRepository.findAllByUserId(userId)
-            .flatMap(deck -> deckCardRepository.findAllByDeckId(deck.getId())
-                    .flatMap(deckCard -> Flux.range(0, deckCard.getCount()).map(i -> deckCard.getCardId()))
-                    .collectList()
-                    .flatMap(cardIds-> Flux.fromIterable(cardIds).flatMap(deckDataService::getCardDto).collectList())
-                    .map(cardDtos ->
+        return deckRepository.findAllByUserId(userId)
+                .switchIfEmpty(deckInitializer.initializeCard(userId)
+                        .thenMany(deckRepository.findAllByUserId(userId))
+                )
+                .flatMap(this::mapToDeckResponseDto);
+    }
+
+    private Mono<DeckResponseDto> mapToDeckResponseDto(Deck deck) {
+        return deckCardRepository.findAllByDeckId(deck.getId())
+                .flatMap(deckCard -> Flux.range(0, deckCard.getCount()).map(i -> deckCard.getCardId()))
+                .collectList()
+                .flatMap(cardIds-> Flux.fromIterable(cardIds).flatMap(deckDataService::getCardDto).collectList())
+                .map(cardDtos ->
                         new DeckResponseDto(
                                 deck.getId(),
                                 deck.getName(),
-                                cardDtos))
-            ));
+                                cardDtos));
     }
 
     public Mono<DeckResponseDto> saveDeck(long userId, DeckRequestDto deckRequestDto) {

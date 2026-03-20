@@ -37,7 +37,6 @@ public class DeckInitializer {
     private Mono<Void> giveStarterCard(long userId) {
         return deckDataService.getAllCard()
                 .flatMapMany(Flux::fromIterable)
-                .filter(card -> card.getId() >= 1 && card.getId() <= 9)
                 .flatMap(card -> userCardRepository.save(new UserCard(userId, card.getId(), 3)))
                 .then();
     }
