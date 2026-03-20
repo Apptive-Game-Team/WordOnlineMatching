@@ -16,6 +16,8 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class DecorationRewardGiver implements RewardGiver {
 
+    private static final int DECORATION_REWARD_AMOUNT = 1;
+
     private final UserDecorationRepository userDecorationRepository;
 
     @ParamName("decoration_id")
@@ -26,5 +28,20 @@ public class DecorationRewardGiver implements RewardGiver {
         var userDeco = new UserDecoration(null, userId, decoId, false);
         return userDecorationRepository.save(userDeco)
                 .then();
+    }
+
+    @Override
+    public String getRewardType() {
+        return "DECORATION";
+    }
+
+    @Override
+    public long getRewardId() {
+        return decoId;
+    }
+
+    @Override
+    public int getAmount() {
+        return DECORATION_REWARD_AMOUNT;
     }
 }

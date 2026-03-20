@@ -1,10 +1,13 @@
 package com.wordonline.matching.quest.service;
 
-import com.wordonline.matching.quest.entity.Quest;
+import java.util.List;
+
 import org.springframework.stereotype.Service;
 
 import com.wordonline.matching.quest.domain.QuestState;
 import com.wordonline.matching.quest.dto.QuestProgressResponseDto;
+import com.wordonline.matching.quest.dto.QuestRewardDto;
+import com.wordonline.matching.quest.entity.Quest;
 import com.wordonline.matching.quest.entity.UserQuest;
 import com.wordonline.matching.quest.repository.QuestRepository;
 import com.wordonline.matching.quest.repository.RewardParamRepository;
@@ -24,12 +27,17 @@ public class QuestService {
     private final QuestRewardGiver rewardGiver;
 
     public Mono<Void> checkQuests(long userId) {
+        return checkQuestsWithRewards(userId).then();
+    }
+
+    public Mono<List<QuestRewardDto>> checkQuestsWithRewards(long userId) {
         return questRepository.findAllByUserIdAndState(userId, QuestState.IN_PROGRESS)
                 .filter(quest -> quest.getProgressChecker() != null)
                 .filterWhen(quest -> questChecker.check(userId, quest))
-                .flatMap(quest -> rewardGiver.give(userId, quest)
-                        .then(markQuestCompleted(userId, quest.getId())))
-                .then();
+                .flatMapSequential(quest -> rewardGiver.giveWithReward(userId, quest)
+                        .flatMap(reward -> markQuestCompleted(userId, quest.getId())
+                                .thenReturn(reward)))
+                .collectList();
     }
 
     private Mono<Void> markQuestCompleted(long userId, long questId) {

@@ -14,6 +14,8 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class CardRewardGiver implements RewardGiver {
 
+    private static final int CARD_REWARD_AMOUNT = 3;
+
     private final UserCardRepository userCardRepository;
 
     @ParamName("card_id")
@@ -21,8 +23,23 @@ public class CardRewardGiver implements RewardGiver {
 
     @Override
     public Mono<Void> give(long userId) {
-        var userCard = new UserCard(userId, (long) cardId, 3);
+        var userCard = new UserCard(userId, (long) cardId, CARD_REWARD_AMOUNT);
         return userCardRepository.save(userCard)
                 .then();
+    }
+
+    @Override
+    public String getRewardType() {
+        return "CARD";
+    }
+
+    @Override
+    public long getRewardId() {
+        return cardId;
+    }
+
+    @Override
+    public int getAmount() {
+        return CARD_REWARD_AMOUNT;
     }
 }
