@@ -1,15 +1,13 @@
 package com.wordonline.matching.quest.service;
 
-import java.lang.reflect.Field;
-
 import org.springframework.beans.factory.BeanNotOfRequiredTypeException;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 
 import com.wordonline.matching.quest.domain.reward.ParamName;
 import com.wordonline.matching.quest.domain.reward.RewardGiver;
+import com.wordonline.matching.quest.dto.QuestRewardDto;
 import com.wordonline.matching.quest.entity.Quest;
 import com.wordonline.matching.quest.repository.RewardParamRepository;
 
@@ -28,19 +26,32 @@ public class QuestRewardGiver {
     private final ApplicationContext applicationContext;
 
     public Mono<Void> give(long userId, Quest quest) {
-        RewardGiver rewardGiver;
+        return giveWithReward(userId, quest).then();
+    }
 
-        try {
-            rewardGiver =
-                    applicationContext.getBean(quest.getRewardGiver(), RewardGiver.class);
-        } catch (NoSuchBeanDefinitionException | BeanNotOfRequiredTypeException e) {
-            log.error("[Error] error while find reward giver", e);
+    public Mono<QuestRewardDto> giveWithReward(long userId, Quest quest) {
+        RewardGiver rewardGiver = findRewardGiver(quest);
+        if (rewardGiver == null) {
             return Mono.empty();
         }
 
         return fillParam(rewardGiver, quest.getId())
                 .then(Mono.defer(() -> rewardGiver.give(userId)))
-                .then();
+                .thenReturn(new QuestRewardDto(
+                        rewardGiver.getRewardType(),
+                        rewardGiver.getRewardId(),
+                        rewardGiver.getAmount(),
+                        quest.getId()
+                ));
+    }
+
+    private RewardGiver findRewardGiver(Quest quest) {
+        try {
+            return applicationContext.getBean(quest.getRewardGiver(), RewardGiver.class);
+        } catch (NoSuchBeanDefinitionException | BeanNotOfRequiredTypeException e) {
+            log.error("[Error] error while find reward giver", e);
+            return null;
+        }
     }
 
     private Mono<Void> fillParam(RewardGiver rewardGiver, long questId) {

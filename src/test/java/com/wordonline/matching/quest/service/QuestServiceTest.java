@@ -2,6 +2,7 @@ package com.wordonline.matching.quest.service;
 
 import com.wordonline.matching.quest.domain.QuestState;
 import com.wordonline.matching.quest.dto.QuestProgressResponseDto;
+import com.wordonline.matching.quest.dto.QuestRewardDto;
 import com.wordonline.matching.quest.entity.Quest;
 import com.wordonline.matching.quest.entity.RewardParam;
 import com.wordonline.matching.quest.entity.UserQuest;
@@ -15,8 +16,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -123,6 +127,28 @@ class QuestServiceTest {
                         response.getProgress() == progress &&
                         response.getRequireValue() == localQuest.getRequireValue()
                 )
+                .verifyComplete();
+    }
+
+    @Test
+    @DisplayName("checkQuestsWithRewards returns completed quest rewards")
+    void checkQuestsWithRewards_Success() {
+        long userId = 1L;
+        Quest secondQuest = new Quest(2L, "checker2", 50, "giver2");
+        QuestRewardDto firstReward = new QuestRewardDto("CARD", 10L, 3, quest.getId());
+        QuestRewardDto secondReward = new QuestRewardDto("MAGIC", 20L, 1, secondQuest.getId());
+
+        when(questRepository.findAllByUserIdAndState(userId, QuestState.IN_PROGRESS))
+                .thenReturn(Flux.just(quest, secondQuest));
+        when(questChecker.check(userId, quest)).thenReturn(Mono.just(true));
+        when(questChecker.check(userId, secondQuest)).thenReturn(Mono.just(true));
+        when(rewardGiver.giveWithReward(userId, quest)).thenReturn(Mono.just(firstReward));
+        when(rewardGiver.giveWithReward(userId, secondQuest)).thenReturn(Mono.just(secondReward));
+        when(userQuestRepository.setCompletedByUserIdAndQuestId(userId, quest.getId())).thenReturn(Mono.empty());
+        when(userQuestRepository.setCompletedByUserIdAndQuestId(userId, secondQuest.getId())).thenReturn(Mono.empty());
+
+        StepVerifier.create(questService.checkQuestsWithRewards(userId))
+                .expectNext(List.of(firstReward, secondReward))
                 .verifyComplete();
     }
 }
