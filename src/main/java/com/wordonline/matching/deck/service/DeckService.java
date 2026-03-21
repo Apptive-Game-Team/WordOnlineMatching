@@ -12,7 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 import com.wordonline.matching.auth.repository.UserRepository;
 import com.wordonline.matching.deck.domain.Deck;
 import com.wordonline.matching.deck.domain.DeckCard;
-import com.wordonline.matching.deck.domain.UserCard;
 import com.wordonline.matching.deck.dto.CardDto;
 import com.wordonline.matching.deck.dto.CardPoolDto;
 import com.wordonline.matching.deck.dto.DeckCardDto;
@@ -22,8 +21,7 @@ import com.wordonline.matching.deck.repository.DeckCardRepository;
 import com.wordonline.matching.deck.repository.DeckRepository;
 import com.wordonline.matching.deck.repository.UserCardRepository;
 import com.wordonline.matching.deck.validation.DeckValidator;
-import com.wordonline.matching.quest.service.QuestService;
-import com.wordonline.matching.service.LocalizationService;
+import com.wordonline.matching.global.service.LocalizationService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,7 +41,6 @@ public class DeckService {
     private final LocalizationService localizationService;
     private final UserCardRepository userCardRepository;
     private final DeckCardRepository deckCardRepository;
-    private final DeckInitializer deckInitializer;
 
     @Transactional(readOnly = true)
     public Mono<Boolean> hasSelectedDeck(long userId) {
@@ -54,9 +51,6 @@ public class DeckService {
     @Transactional
     public Flux<DeckResponseDto> getDecks(long userId){
         return deckRepository.findAllByUserId(userId)
-                .switchIfEmpty(deckInitializer.initializeCard(userId)
-                        .thenMany(deckRepository.findAllByUserId(userId))
-                )
                 .flatMap(this::mapToDeckResponseDto);
     }
 

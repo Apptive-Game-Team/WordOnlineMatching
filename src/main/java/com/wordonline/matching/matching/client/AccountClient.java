@@ -8,7 +8,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import com.wordonline.matching.matching.dto.AccountMemberResponseDto;
 import com.wordonline.matching.matching.service.BotMemberMaker;
-import com.wordonline.matching.service.LocalizationService;
+import com.wordonline.matching.global.service.LocalizationService;
 
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
