@@ -25,9 +25,74 @@ WHERE id = :userId;
 """)
     Mono<Long> updateStatus(@Param("userId") Long userId, @Param("status") UserStatus status);
 
-    @Query("""
-INSERT INTO users(id, status) VALUES
-                      (:userId, 'Online');
-""")
+    @Query(
+            """
+            INSERT INTO users(id, status) VALUES
+            (:userId, 'Online');
+            """
+    )
     Mono<Long> insertUser(@Param("userId") Long userId);
+
+    @Query(
+            """
+            INSERT INTO user_magics(user_id, magic_id)
+            (
+                SELECT :userId, m.id
+                FROM magics m
+                WHERE m.access_type = 'DEFAULT'
+            );
+            """
+    )
+    Mono<Void> initUserMagic(@Param("userId") Long userId);
+
+    @Query(
+            """
+            INSERT INTO user_cards(user_id, card_id, count)
+            (
+                SELECT :userId, c.id, 3
+                FROM cards c
+                WHERE c.access_type = 'DEFAULT'
+            );
+            """
+    )
+    Mono<Void> initUserCard(@Param("userId") Long userId);
+
+    @Query(
+            """
+            INSERT INTO user_quests(user_id, quest_id, state)
+            (
+                SELECT :userId, q.id, 'IN_PROGRESS'
+                FROM quests q
+                WHERE q.access_type = 'DEFAULT'
+            );
+            """
+    )
+    Mono<Void> initUserQuest(@Param("userId") Long userId);
+
+    @Query(
+            """
+            WITH inserted_decks AS (
+               INSERT INTO decks(name, user_id)
+               (
+                   SELECT name, :userId
+                   FROM decks d
+                   WHERE d.user_id = 0
+               )
+               RETURNING id, name
+            ),
+            inserted_deck_ids AS (
+                INSERT INTO deck_cards(deck_id, card_id, count)
+                (
+                    SELECT i.id, dc.card_id, dc.count
+                    FROM inserted_decks i
+                    JOIN decks d ON i.name = d.name AND d.user_id = 0
+                    JOIN deck_cards dc ON d.id = dc.deck_id
+                )
+                RETURNING deck_id
+            )
+            UPDATE users SET selected_deck_id = (SELECT MIN(deck_id) FROM inserted_deck_ids)
+            WHERE users.id = :userId
+            """
+    )
+    Mono<Void> initUserDeck(@Param("userId") Long userId);
 }

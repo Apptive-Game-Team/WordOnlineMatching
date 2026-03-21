@@ -141,3 +141,7 @@ DROP TABLE user_adventures;
 DROP TABLE user_stages;
 ALTER TABLE user_scenarios
     ADD CONSTRAINT uq_user_adventures_user_id_scenario_id UNIQUE (user_id, scenario_id);
+
+ALTER TABLE cards ADD COLUMN access_type VARCHAR(10) NOT NULL DEFAULT 'DEFAULT';
+ALTER TABLE magics ADD COLUMN access_type VARCHAR(10) NOT NULL DEFAULT 'DEFAULT';
+ALTER TABLE quests ADD COLUMN access_type VARCHAR(10) NOT NULL DEFAULT 'DEFAULT';
