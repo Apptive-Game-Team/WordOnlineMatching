@@ -1,4 +1,4 @@
-package com.wordonline.matching.controller;
+package com.wordonline.matching.global.controller;
 
 import org.springframework.context.support.DefaultMessageSourceResolvable;
 import org.springframework.http.HttpStatus;

@@ -1,4 +1,4 @@
-package com.wordonline.matching.config.webclient;
+package com.wordonline.matching.global.config.webclient;
 
 import java.io.IOException;
 import java.nio.file.Files;

@@ -1,4 +1,4 @@
-package com.wordonline.matching.config;
+package com.wordonline.matching.global.config;
 
 import java.util.Objects;
 

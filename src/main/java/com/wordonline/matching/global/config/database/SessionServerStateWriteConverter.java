@@ -1,15 +1,15 @@
-package com.wordonline.matching.config.database;
+package com.wordonline.matching.global.config.database;
 
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.data.convert.WritingConverter;
 
-import com.wordonline.matching.server.entity.ServerType;
+import com.wordonline.matching.server.entity.ServerState;
 
 @WritingConverter
-public class SessionServerTypeWriteConverter implements Converter<ServerType, String> {
+public class SessionServerStateWriteConverter implements Converter<ServerState, String> {
 
     @Override
-    public String convert(ServerType source) {
+    public String convert(ServerState source) {
         if (source == null) {
             return null;
         }

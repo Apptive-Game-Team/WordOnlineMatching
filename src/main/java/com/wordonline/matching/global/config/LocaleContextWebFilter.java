@@ -1,4 +1,4 @@
-package com.wordonline.matching.config;
+package com.wordonline.matching.global.config;
 
 import org.springframework.context.i18n.LocaleContext;
 import org.springframework.stereotype.Component;

@@ -13,7 +13,7 @@ import com.wordonline.matching.matching.dto.MatchedInfoDto;
 import com.wordonline.matching.matching.dto.SessionDto;
 import com.wordonline.matching.server.entity.Server;
 import com.wordonline.matching.server.service.GameServerManagementService;
-import com.wordonline.matching.service.LocalizationService;
+import com.wordonline.matching.global.service.LocalizationService;
 import com.wordonline.matching.session.domain.SessionRecoveryInfo;
 import com.wordonline.matching.session.dto.SimpleBooleanDto;
 

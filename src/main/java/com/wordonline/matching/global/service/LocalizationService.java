@@ -1,4 +1,4 @@
-package com.wordonline.matching.service;
+package com.wordonline.matching.global.service;
 
 import lombok.RequiredArgsConstructor;
 

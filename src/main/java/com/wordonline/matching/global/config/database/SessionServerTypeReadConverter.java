@@ -1,4 +1,4 @@
-package com.wordonline.matching.config.database;
+package com.wordonline.matching.global.config.database;
 
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.data.convert.ReadingConverter;
