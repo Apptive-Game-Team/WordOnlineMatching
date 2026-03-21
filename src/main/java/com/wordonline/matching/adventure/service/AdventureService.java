@@ -10,7 +10,8 @@ import com.wordonline.matching.adventure.dto.AdventureDto;
 import com.wordonline.matching.adventure.dto.AdventuresResponse;
 import com.wordonline.matching.adventure.dto.ScenarioDto;
 import com.wordonline.matching.adventure.dto.StageDto;
-import com.wordonline.matching.adventure.repository.AdventureProjection;
+import com.wordonline.matching.adventure.repository.AdventureDatabaseDto;
+import com.wordonline.matching.adventure.repository.UserAdventureRepository;
 import com.wordonline.matching.adventure.repository.UserScenarioRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -22,51 +23,51 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class AdventureService {
 
-    private final UserScenarioRepository userScenarioRepository;
+    private final UserAdventureRepository userAdventureRepository;
     private final AdventureInitService adventureInitService;
     private final AdventureProgressService adventureProgressService;
 
     public Mono<AdventuresResponse> getAdventures(Long userId) {
-        return userScenarioRepository.findAllAdventureProgress(userId)
+        return userAdventureRepository.findAllAdventureProgress(userId)
                 .collectList()
                 .map(this::mapToAdventuresResponse);
     }
 
-    private AdventuresResponse mapToAdventuresResponse(List<AdventureProjection> adventureProjections) {
-        Map<Long, List<AdventureProjection>> adventureMap = adventureProjections.stream()
-                .collect(Collectors.groupingBy(AdventureProjection::getAdventureId, LinkedHashMap::new, Collectors.toList()));
+    private AdventuresResponse mapToAdventuresResponse(List<AdventureDatabaseDto> AdventureDatabaseDtos) {
+        Map<Long, List<AdventureDatabaseDto>> adventureMap = AdventureDatabaseDtos.stream()
+                .collect(Collectors.groupingBy(AdventureDatabaseDto::adventureId, LinkedHashMap::new, Collectors.toList()));
 
         List<AdventureDto> adventureDtos = adventureMap.entrySet().stream().map(this::mapToAdventureDto).toList();
 
         return new AdventuresResponse(adventureDtos);
     }
 
-    private AdventureDto mapToAdventureDto(Entry<Long, List<AdventureProjection>> adventureEntry) {
-        List<AdventureProjection> advRows = adventureEntry.getValue();
+    private AdventureDto mapToAdventureDto(Entry<Long, List<AdventureDatabaseDto>> adventureEntry) {
+        List<AdventureDatabaseDto> advRows = adventureEntry.getValue();
 
-        Map<Long, List<AdventureProjection>> stageMap = advRows.stream()
-                .collect(Collectors.groupingBy(AdventureProjection::getStageId, LinkedHashMap::new, Collectors.toList()));
+        Map<Long, List<AdventureDatabaseDto>> stageMap = advRows.stream()
+                .collect(Collectors.groupingBy(AdventureDatabaseDto::stageId, LinkedHashMap::new, Collectors.toList()));
 
         List<StageDto> stageDtos = stageMap.entrySet().stream()
                 .map(this::mapToStageDto).toList();
 
-        return new AdventureDto(adventureEntry.getKey(), advRows.getFirst().getAdventureState(), stageDtos);
+        return new AdventureDto(adventureEntry.getKey(), advRows.getFirst().adventureState(), stageDtos);
     }
 
-    private StageDto mapToStageDto(Entry<Long, List<AdventureProjection>> stageEntry) {
-        List<AdventureProjection> stageRows = stageEntry.getValue();
+    private StageDto mapToStageDto(Entry<Long, List<AdventureDatabaseDto>> stageEntry) {
+        List<AdventureDatabaseDto> stageRows = stageEntry.getValue();
 
         List<ScenarioDto> scenarioDtos = stageRows.stream()
                 .map(this::mapToScenarioDto)
                 .toList();
 
-        return new StageDto(stageEntry.getKey(), stageRows.getFirst().getStageState(), scenarioDtos);
+        return new StageDto(stageEntry.getKey(), stageRows.getFirst().stageState(), scenarioDtos);
     }
 
-    private ScenarioDto mapToScenarioDto(AdventureProjection adventureProjection) {
+    private ScenarioDto mapToScenarioDto(AdventureDatabaseDto AdventureDatabaseDto) {
         return new ScenarioDto(
-                adventureProjection.getScenarioId(),
-                adventureProjection.getScenarioState());
+                AdventureDatabaseDto.scenarioId(),
+                AdventureDatabaseDto.scenarioState());
     }
 
     public Mono<Void> updateUserAdventures(long userId) {
