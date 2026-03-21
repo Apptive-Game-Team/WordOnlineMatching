@@ -11,6 +11,7 @@ import com.wordonline.matching.decoration.entity.UserDecoration;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+@Deprecated
 public interface UserDecorationRepository extends R2dbcRepository<UserDecoration, Long> {
 
     Mono<Boolean> existsByUserId(Long userId);

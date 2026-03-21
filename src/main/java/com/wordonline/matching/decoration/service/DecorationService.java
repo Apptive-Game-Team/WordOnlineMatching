@@ -19,6 +19,7 @@ import reactor.core.publisher.Mono;
 @Service
 @Transactional
 @RequiredArgsConstructor
+@Deprecated
 public class DecorationService {
 
     private final DecorationRepository decorationRepository;

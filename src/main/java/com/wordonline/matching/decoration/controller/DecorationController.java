@@ -26,6 +26,7 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 @RequestMapping("/api/users")
 @PreAuthorize("isAuthenticated()")
+@Deprecated
 public class DecorationController {
 
     private final DecorationService decorationService;

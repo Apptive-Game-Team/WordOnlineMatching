@@ -2,6 +2,7 @@ package com.wordonline.matching.decoration.dto;
 
 import com.wordonline.matching.decoration.entity.Decoration;
 
+@Deprecated
 public record DecorationResponse(
         long decorationId,
         String name,
