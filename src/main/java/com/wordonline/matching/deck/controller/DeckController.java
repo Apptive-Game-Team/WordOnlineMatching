@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.wordonline.matching.auth.service.UserId;
 import com.wordonline.matching.deck.dto.CardPoolDto;
 import com.wordonline.matching.deck.dto.DeckRequestDto;
 import com.wordonline.matching.deck.dto.DeckResponseDto;
@@ -34,36 +35,34 @@ public class DeckController {
 
     @GetMapping("/cards")
     public Mono<CardPoolDto> getCardPool(
-            @AuthenticationPrincipal Jwt jwt
+            @UserId Long userId
     ) {
-        return deckService.getCardPool(jwt.getClaim("memberId"));
+        return deckService.getCardPool(userId);
     }
 
     @GetMapping("/decks")
     public Flux<DeckResponseDto> getDecks(
-            @AuthenticationPrincipal Jwt principalDetails
+            @UserId Long userId
     ) {
-        return deckService.getDecks(principalDetails.getClaim("memberId"));
+        return deckService.getDecks(userId);
     }
 
     @PostMapping("/decks")
     public Mono<DeckResponseDto> saveDeck(
             @Validated @RequestBody DeckRequestDto deckRequestDto,
-            @AuthenticationPrincipal Jwt principalDetails
+            @UserId Long userId
             ) {
-        return deckService.saveDeck(
-                    principalDetails.getClaim("memberId"),
-                    deckRequestDto);
+        return deckService.saveDeck(userId, deckRequestDto);
     }
 
     @PutMapping("/decks/{deckId}")
     public Mono<DeckResponseDto> updateDeck(
             @PathVariable Long deckId,
             @Validated @RequestBody DeckRequestDto deckRequestDto,
-            @AuthenticationPrincipal Jwt principalDetails
+            @UserId Long userId
     ) {
         return deckService.updateDeck(
-                principalDetails.getClaim("memberId"),
+                userId,
                 deckId,
                 deckRequestDto);
     }
@@ -71,10 +70,10 @@ public class DeckController {
     @PostMapping("/decks/{deckId}")
     public Mono<String> selectDeck(
             @PathVariable Long deckId,
-            @AuthenticationPrincipal Jwt principalDetails
+            @UserId Long userId
     ) {
         return deckService.selectDeck(
-                principalDetails.getClaim("memberId"),
+                userId,
                 deckId
         ).then(Mono.just("Successfully Saved"));
     }

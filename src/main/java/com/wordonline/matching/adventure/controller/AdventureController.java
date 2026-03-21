@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.wordonline.matching.adventure.dto.AdventuresResponse;
 import com.wordonline.matching.adventure.service.AdventureService;
+import com.wordonline.matching.auth.service.UserId;
 import com.wordonline.matching.matching.service.MatchingService;
 
 import lombok.RequiredArgsConstructor;
@@ -25,18 +26,16 @@ public class AdventureController {
     private final MatchingService matchingService;
 
     @GetMapping("/adventures")
-    public Mono<AdventuresResponse> getAdventures(@AuthenticationPrincipal Jwt principalDetails) {
-        Long memberId = principalDetails.getClaim("memberId");
-        return adventureService.updateUserAdventures(memberId)
-                        .then(adventureService.getAdventures(memberId));
+    public Mono<AdventuresResponse> getAdventures(@UserId Long userId) {
+        return adventureService.updateUserAdventures(userId)
+                        .then(adventureService.getAdventures(userId));
     }
 
     @GetMapping(value = "/scenarios/{scenarioId}/play",
             produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<Object> playStage(
-            @AuthenticationPrincipal Jwt principalDetails,
+            @UserId Long userId,
             @PathVariable Long scenarioId) {
-        Long memberId = principalDetails.getClaim("memberId");
-        return matchingService.requestPVE(memberId, scenarioId);
+        return matchingService.requestPVE(userId, scenarioId);
     }
 }

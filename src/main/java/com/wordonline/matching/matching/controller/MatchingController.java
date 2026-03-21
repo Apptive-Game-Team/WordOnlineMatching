@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.wordonline.matching.auth.service.UserId;
 import com.wordonline.matching.matching.dto.QueueLengthResponseDto;
 import com.wordonline.matching.matching.service.MatchingService;
 
@@ -25,21 +26,21 @@ public class MatchingController {
     private final MatchingService matchingService;
 
     @GetMapping(value = "/api/match/queue/me", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<Object> queueMatching(@AuthenticationPrincipal Jwt principalDetails) {
-        log.info("[Queue] User queued for matching; userId: {}", principalDetails.getClaim("memberId").toString());
-        Long memberId = principalDetails.getClaim("memberId");
+    public Flux<Object> queueMatching(@UserId Long userId) {
+        log.info("[Queue] User queued for matching; userId: {}", userId.toString());
+        Long memberId = userId;
         return matchingService.requestMatching(memberId);
     }
 
     @GetMapping(value = "/api/match/practice/me", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<Object> matchPractice(@AuthenticationPrincipal Jwt principalDetails) {
-        Long memberId = principalDetails.getClaim("memberId");
+    public Flux<Object> matchPractice(@UserId Long userId) {
+        Long memberId = userId;
         return matchingService.requestPractice(memberId);
     }
 
     @GetMapping("/api/match/queue/me/exist")
-    public Mono<ResponseEntity<Void>> isMeInQueue(@AuthenticationPrincipal Jwt principalDetails) {
-        if (matchingService.isInQueue(principalDetails.getClaim("memberId"))) {
+    public Mono<ResponseEntity<Void>> isMeInQueue(@UserId Long userId) {
+        if (matchingService.isInQueue(userId)) {
             return Mono.just(ResponseEntity.ok().build());
         }
         return Mono.just(ResponseEntity.notFound().build());
@@ -47,8 +48,8 @@ public class MatchingController {
 
     @ResponseBody
     @DeleteMapping("/api/match/queue/me")
-    public Mono<Void> removeFromQueue(@AuthenticationPrincipal Jwt principalDetails) {
-        return matchingService.removeFromQueue(principalDetails.getClaim("memberId"));
+    public Mono<Void> removeFromQueue(@UserId Long userId) {
+        return matchingService.removeFromQueue(userId);
     }
 
     @ResponseBody
