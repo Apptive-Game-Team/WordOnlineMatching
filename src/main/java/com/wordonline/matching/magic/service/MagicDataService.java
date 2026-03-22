@@ -10,6 +10,8 @@ import com.wordonline.matching.magic.repository.MagicCardRepository;
 import com.wordonline.matching.magic.repository.MagicRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -23,12 +25,14 @@ import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Service
+@Transactional
 public class MagicDataService {
 
     private final MagicCardRepository magicCardRepository;
     private final MagicRepository magicRepository;
     private final CardRepository cardRepository;
 
+    @Transactional(readOnly = true)
     public Mono<MagicsResponse> getMagics(String currentVersion) {
         Flux<MagicCard> magicCardsFlux;
         String initialVersion = currentVersion;

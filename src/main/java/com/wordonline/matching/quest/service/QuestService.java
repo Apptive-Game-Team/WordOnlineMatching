@@ -3,6 +3,7 @@ package com.wordonline.matching.quest.service;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.wordonline.matching.quest.domain.QuestState;
 import com.wordonline.matching.quest.dto.QuestProgressResponseDto;
@@ -18,6 +19,7 @@ import reactor.core.publisher.Mono;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class QuestService {
 
     private final QuestRepository questRepository;
@@ -25,10 +27,6 @@ public class QuestService {
     private final RewardParamRepository rewardParamRepository;
     private final QuestChecker questChecker;
     private final QuestRewardGiver rewardGiver;
-
-    public Mono<Void> checkQuests(long userId) {
-        return checkQuestsWithRewards(userId).then();
-    }
 
     public Mono<List<QuestRewardDto>> checkQuestsWithRewards(long userId) {
         return questRepository.findAllByUserIdAndState(userId, QuestState.IN_PROGRESS)
@@ -44,11 +42,13 @@ public class QuestService {
         return userQuestRepository.setCompletedByUserIdAndQuestId(userId, questId);
     }
 
+    @Transactional(readOnly = true)
     public Mono<QuestProgressResponseDto> findQuestProgressByDecoration(long userId, long decoId) {
         return findQuestProgress(userId, rewardParamRepository.findByNameAndValue("decoration_id", (int) decoId)
                 .flatMap(rewardParam -> questRepository.findById(rewardParam.getQuestId())));
     }
 
+    @Transactional(readOnly = true)
     public Mono<QuestProgressResponseDto> findQuestProgressByCard(long userId, long cardId) {
         return findQuestProgress(userId, rewardParamRepository.findByNameAndValue("card_id", (int) cardId)
                 .flatMap(rewardParam -> questRepository.findById(rewardParam.getQuestId())));

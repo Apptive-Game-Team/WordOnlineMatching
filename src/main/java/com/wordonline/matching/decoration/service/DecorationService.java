@@ -24,11 +24,9 @@ public class DecorationService {
 
     private final DecorationRepository decorationRepository;
     private final UserDecorationRepository userDecorationRepository;
-    private final QuestService questService;
 
     public Flux<DecorationResponse> getDecorationsByUserId(long memberId, boolean equippedOnly) {
-        return questService.checkQuests(memberId)
-                .thenMany(findDecorationsByUserId(memberId, equippedOnly));
+        return findDecorationsByUserId(memberId, equippedOnly);
     }
 
     private Flux<DecorationResponse> findDecorationsByUserId(long memberId, boolean equippedOnly) {
