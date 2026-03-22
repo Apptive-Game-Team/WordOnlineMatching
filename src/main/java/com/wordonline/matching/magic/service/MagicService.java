@@ -30,21 +30,4 @@ public class MagicService {
         return userMagicRepository.save(new UserMagic(userId, magicId))
                 .then();
     }
-
-    public Mono<Void> giveDefaultMagics(long userId) {
-        List<Long> defaultMagics = Stream.of(
-                        LongStream.range(1, 25),
-                        LongStream.range(33, 39),
-                        LongStream.of(29, 32, 47, 28)
-                )
-                .flatMapToLong(s -> s)
-                .boxed()
-                .toList();
-
-        return userMagicRepository.saveAll(
-                defaultMagics.stream()
-                        .map(magicId -> new UserMagic(magicId, userId))
-                        .toList()
-        ).then();
-    }
 }
