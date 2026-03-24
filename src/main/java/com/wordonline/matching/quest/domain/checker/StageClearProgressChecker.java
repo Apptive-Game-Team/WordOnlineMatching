@@ -15,6 +15,6 @@ public class StageClearProgressChecker implements ProgressChecker {
     @Override
     public Mono<Integer> check(long userId) {
         return userScenarioRepository.countFinishedStageByUserId(userId)
-                .map(Long::intValue);
+                .map(countDto -> countDto.getCount().intValue());
     }
 }

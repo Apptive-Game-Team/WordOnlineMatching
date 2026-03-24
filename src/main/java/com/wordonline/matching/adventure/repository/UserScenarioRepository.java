@@ -1,5 +1,6 @@
 package com.wordonline.matching.adventure.repository;
 
+import com.wordonline.matching.quest.dto.CountDto;
 import org.springframework.data.r2dbc.repository.Query;
 import org.springframework.data.r2dbc.repository.R2dbcRepository;
 
@@ -58,7 +59,7 @@ public interface UserScenarioRepository extends R2dbcRepository<UserScenario, Lo
 
     @Query(
             """
-            SELECT COUNT(*)
+            SELECT COUNT(*) AS count
             FROM (
                 SELECT st.id
                 FROM stages st
@@ -70,5 +71,5 @@ public interface UserScenarioRepository extends R2dbcRepository<UserScenario, Lo
             ) AS finished_stages
             """
     )
-    Mono<Long> countFinishedStageByUserId(Long userId);
+    Mono<CountDto> countFinishedStageByUserId(Long userId);
 }
