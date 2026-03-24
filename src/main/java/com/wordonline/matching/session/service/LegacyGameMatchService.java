@@ -25,7 +25,7 @@ import reactor.util.function.Tuple2;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class GameMatchService {
+public class LegacyGameMatchService {
 
     private final WebClient.Builder webClientBuilder;
     private final SessionRecoveryStore sessionRecoveryStore;

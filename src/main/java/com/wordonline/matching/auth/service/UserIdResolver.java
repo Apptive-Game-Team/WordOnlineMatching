@@ -2,6 +2,7 @@ package com.wordonline.matching.auth.service;
 
 import org.springframework.core.MethodParameter;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -32,6 +33,7 @@ public class UserIdResolver implements HandlerMethodArgumentResolver {
                 .filter(Authentication::isAuthenticated)
                 .map(Authentication::getPrincipal)
                 .cast(Jwt.class)
-                .map(jwt -> jwt.getClaim("memberId"));
+                .map(jwt -> jwt.getClaim("memberId"))
+                .switchIfEmpty(Mono.error(new AuthenticationException("User ID not found in token") {}));
     }
 }

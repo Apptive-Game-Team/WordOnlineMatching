@@ -4,8 +4,6 @@ import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -18,7 +16,7 @@ import com.wordonline.matching.auth.service.UserService;
 import com.wordonline.matching.matching.dto.MatchedInfoDto;
 import com.wordonline.matching.quest.dto.QuestCheckResponseDto;
 import com.wordonline.matching.quest.service.QuestService;
-import com.wordonline.matching.session.service.GameMatchService;
+import com.wordonline.matching.session.service.LegacyGameMatchService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,7 +29,7 @@ import reactor.core.publisher.Mono;
 public class UserController {
 
     private final UserService userService;
-    private final GameMatchService gameMatchService;
+    private final LegacyGameMatchService gameMatchService;
     private final QuestService questService;
 
     @GetMapping("/mine")
@@ -58,6 +56,7 @@ public class UserController {
     public Mono<MatchedInfoDto> getMatchInfo(
             @UserId Long userId
     ) {
+
         return gameMatchService.getMatchInfo(
                 userId
         );
