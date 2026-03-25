@@ -1,5 +1,6 @@
 package com.wordonline.matching.deck.controller;
 
+import com.wordonline.matching.auth.service.UserId;
 import com.wordonline.matching.deck.dto.CardListResponse;
 import com.wordonline.matching.deck.service.CardListService;
 import com.wordonline.matching.quest.dto.QuestProgressResponseDto;
@@ -23,14 +24,12 @@ public class CardController {
     }
 
     @GetMapping("/api/users/mine/cardLists")
-    public Mono<CardListResponse> getMyCards(@AuthenticationPrincipal Jwt jwt) {
-        var userId = Long.parseLong(jwt.getClaimAsString("memberId"));
+    public Mono<CardListResponse> getMyCards(@UserId Long userId) {
         return cardListService.getMyCards(userId);
     }
 
     @GetMapping("/api/cards/{cardId}/quest-progress")
-    public Mono<QuestProgressResponseDto> getQuestProgressByCard(@AuthenticationPrincipal Jwt jwt, @PathVariable long cardId) {
-        long userId = Long.parseLong(jwt.getClaimAsString("memberId"));
+    public Mono<QuestProgressResponseDto> getQuestProgressByCard(@UserId Long userId, @PathVariable long cardId) {
         return questService.findQuestProgressByCard(userId, cardId);
     }
 }

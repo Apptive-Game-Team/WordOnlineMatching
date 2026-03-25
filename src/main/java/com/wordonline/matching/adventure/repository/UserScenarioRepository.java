@@ -1,28 +1,75 @@
 package com.wordonline.matching.adventure.repository;
 
+import com.wordonline.matching.quest.dto.CountDto;
 import org.springframework.data.r2dbc.repository.Query;
 import org.springframework.data.r2dbc.repository.R2dbcRepository;
 
 import com.wordonline.matching.adventure.domain.UserScenario;
 
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 public interface UserScenarioRepository extends R2dbcRepository<UserScenario, Long> {
 
-    Mono<UserScenario> findByUserIdAndScenarioId(Long userId, Long scenarioId);
+    @Query(
+            """
+            INSERT INTO user_scenarios(user_id, scenario_id, state)
+                (
+                    SELECT :userId, MIN(sc.id), 'ACTIVE'
+                    FROM scenarios sc
+                        JOIN stages s ON sc.stage_id = s.id
+                        JOIN adventures a ON a.id = s.adventure_id
+                    WHERE a.access_type = 'FREE'
+                    GROUP BY s.adventure_id
+                )
+            ON CONFLICT (user_id, scenario_id)
+            DO UPDATE SET state ='ACTIVE' WHERE user_scenarios.state = 'INACTIVE'
+            """
+    )
+    Mono<Void> updateStateActiveFreeAdventure(Long userId);
 
     @Query(
             """
-            SELECT us.*
-            FROM user_scenarios us
-            JOIN scenarios sc ON us.scenario_id = sc.id
-            JOIN stages st ON sc.stage_id = st.id
-            JOIN adventures a ON st.adventure_id = a.id
-            WHERE a.id = :adventureId
-            AND us.user_id = :userId
-            ORDER BY st.id, sc.id
+            WITH scenario_flow AS (
+                SELECT
+                    s.id AS scenario_id,
+                    s.stage_id,
+                    st.adventure_id,
+                    LAG(us.state) OVER (PARTITION BY st.adventure_id ORDER BY s.id) as prev_state,
+                    us.state as current_state
+                FROM scenarios s
+                JOIN stages st ON s.stage_id = st.id
+                LEFT JOIN user_scenarios us ON us.scenario_id = s.id AND us.user_id = :userId
+            )
+            INSERT INTO user_scenarios (user_id, scenario_id, state)
+            SELECT
+                :userId,
+                sf.scenario_id,
+                'ACTIVE'
+            FROM scenario_flow sf
+            WHERE
+                (sf.current_state IS NULL OR sf.current_state = 'INACTIVE')
+                AND sf.prev_state = 'FINISHED'
+            ON CONFLICT (user_id, scenario_id)
+            DO UPDATE SET
+                state = 'ACTIVE'
+            WHERE user_scenarios.state = 'INACTIVE';
             """
     )
-    Flux<UserScenario> findAllByUserIdAndAdventureIdOrderByStageIdAndScenarioId(Long userId, Long adventureId);
+    Mono<Void> updateStateActiveWhenBeforeScenarioIsFinished(Long userId);
+
+    @Query(
+            """
+            SELECT COUNT(*) AS count
+            FROM (
+                SELECT st.id
+                FROM stages st
+                JOIN scenarios sc ON st.id = sc.stage_id
+                JOIN user_scenarios us ON sc.id = us.scenario_id
+                WHERE us.user_id = :userId
+                GROUP BY st.id
+                HAVING COUNT(sc.id) = COUNT(CASE WHEN us.state = 'FINISHED' THEN 1 END)
+            ) AS finished_stages
+            """
+    )
+    Mono<CountDto> countFinishedStageByUserId(Long userId);
 }

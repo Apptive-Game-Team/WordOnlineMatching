@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.wordonline.matching.auth.service.UserId;
 import com.wordonline.matching.magic.dto.MagicResponse;
 import com.wordonline.matching.magic.service.MagicService;
 
@@ -23,8 +24,8 @@ public class MagicController {
 
     @GetMapping("/mine/magics")
     public Mono<MagicResponse> getMyDecoration(
-            @AuthenticationPrincipal Jwt principalDetails
+            @UserId Long userId
     ) {
-        return magicService.findAll(principalDetails.getClaim("memberId"));
+        return magicService.findAll(userId);
     }
 }

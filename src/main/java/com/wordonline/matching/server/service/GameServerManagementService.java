@@ -30,7 +30,7 @@ public class GameServerManagementService {
 
     public Optional<Server> getAvailableServer() {
         for (Server server : gameServers) {
-            if (server.isAvailable()) {
+            if (server.isAvailable() && server.isLocal()) {
                 return Optional.of(server);
             }
         }

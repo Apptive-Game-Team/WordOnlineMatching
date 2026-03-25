@@ -134,3 +134,14 @@ ALTER TABLE user_cards DROP CONSTRAINT user_cards_user_id_fkey;
 ALTER TABLE decks DROP CONSTRAINT decks_user_id_fkey;
 ALTER TABLE user_adventures DROP CONSTRAINT user_adventures_user_id_fkey;
 ALTER TABLE user_stages DROP CONSTRAINT user_stages_user_id_fkey;
+
+
+-- refactoring
+DROP TABLE user_adventures;
+DROP TABLE user_stages;
+ALTER TABLE user_scenarios
+    ADD CONSTRAINT uq_user_adventures_user_id_scenario_id UNIQUE (user_id, scenario_id);
+
+ALTER TABLE cards ADD COLUMN access_type VARCHAR(10) NOT NULL DEFAULT 'DEFAULT';
+ALTER TABLE magics ADD COLUMN access_type VARCHAR(10) NOT NULL DEFAULT 'DEFAULT';
+ALTER TABLE quests ADD COLUMN access_type VARCHAR(10) NOT NULL DEFAULT 'DEFAULT';

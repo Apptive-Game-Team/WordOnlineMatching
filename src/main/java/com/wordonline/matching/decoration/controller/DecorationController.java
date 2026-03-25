@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.wordonline.matching.auth.service.UserId;
 import com.wordonline.matching.decoration.dto.DecorationRequest;
 import com.wordonline.matching.decoration.dto.DecorationsResponse;
 import com.wordonline.matching.decoration.service.DecorationInitializer;
@@ -25,6 +26,7 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 @RequestMapping("/api/users")
 @PreAuthorize("isAuthenticated()")
+@Deprecated
 public class DecorationController {
 
     private final DecorationService decorationService;
@@ -33,26 +35,26 @@ public class DecorationController {
 
     @GetMapping("/mine/decorations")
     public Mono<DecorationsResponse> getMyDecoration(
-            @AuthenticationPrincipal Jwt principalDetails,
+            @UserId Long userId,
             @RequestParam(required = false, defaultValue = "false") boolean equippedOnly
     ) {
-        return getDecoration(principalDetails.getClaim("memberId"), equippedOnly);
+        return getDecoration(userId, equippedOnly);
     }
 
     @GetMapping("/mine/decorations/{decoId}/quest-progress")
     public Mono<QuestProgressResponseDto> getQuestState(
-            @AuthenticationPrincipal Jwt principalDetails,
+            @UserId Long userId,
             @PathVariable Long decoId
     ) {
-        return questService.findQuestProgressByDecoration(principalDetails.getClaim("memberId"), decoId);
+        return questService.findQuestProgressByDecoration(userId, decoId);
     }
 
     @PostMapping("/mine/decorations")
     public Mono<Void> setDecoration(
-            @AuthenticationPrincipal Jwt principalDetails,
+            @UserId Long userId,
             @RequestBody DecorationRequest decorationRequest
     ) {
-        return decorationService.setDecoration(principalDetails.getClaim("memberId"), decorationRequest);
+        return decorationService.setDecoration(userId, decorationRequest);
     }
 
     @GetMapping("/{memberId}/decorations")

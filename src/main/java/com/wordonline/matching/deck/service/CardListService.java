@@ -4,9 +4,12 @@ import com.wordonline.matching.deck.dto.CardListItem;
 import com.wordonline.matching.deck.dto.CardListResponse;
 import com.wordonline.matching.deck.repository.CardListQueryRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import reactor.core.publisher.Mono;
 
 @Service
+@Transactional
 public class CardListService {
 
     private final CardListQueryRepository repo;
@@ -15,6 +18,7 @@ public class CardListService {
         this.repo = repo;
     }
 
+    @Transactional(readOnly = true)
     public Mono<CardListResponse> getMyCards(long userId) {
         return repo.findMyCardList(userId)
                 .map(r -> {

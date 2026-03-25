@@ -9,6 +9,8 @@ import com.wordonline.matching.data.repository.ParameterRepository;
 import com.wordonline.matching.data.repository.ParameterValueRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -21,6 +23,7 @@ import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Service
+@Transactional
 public class DataService {
 
     private final ParameterValueRepository parameterValueRepository;
