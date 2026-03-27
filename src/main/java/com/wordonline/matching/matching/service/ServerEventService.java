@@ -56,7 +56,7 @@ public class ServerEventService {
         if (many != null) {
             many.tryEmitComplete();
         }
-        return Mono.just(0).then();
+        return Mono.empty();
     }
 
     public Mono<Boolean> send(Long userId, Object data) {

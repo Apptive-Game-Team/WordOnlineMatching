@@ -45,7 +45,7 @@ class MatchingController(
     }
 
     @DeleteMapping("/api/match/queue/me")
-    suspend fun removeFromQueue(@UserId userId: Long?): ResponseEntity<Void> {
+    suspend fun removeFromQueue(@UserId userId: Long?): ResponseEntity<Unit> {
         gameMatchService.removeFromQueue(userId!!)
         return ResponseEntity.ok().build()
     }
