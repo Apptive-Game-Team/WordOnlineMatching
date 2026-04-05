@@ -145,3 +145,14 @@ ALTER TABLE user_scenarios
 ALTER TABLE cards ADD COLUMN access_type VARCHAR(10) NOT NULL DEFAULT 'DEFAULT';
 ALTER TABLE magics ADD COLUMN access_type VARCHAR(10) NOT NULL DEFAULT 'DEFAULT';
 ALTER TABLE quests ADD COLUMN access_type VARCHAR(10) NOT NULL DEFAULT 'DEFAULT';
+
+
+-- Deploy Status
+CREATE TABLE deploy_status (
+    id BIGSERIAL PRIMARY KEY,
+    deploy_type VARCHAR(10) NOT NULL UNIQUE, -- DEV, PROD
+    status VARCHAR(15) NOT NULL DEFAULT 'Healthy' -- Healthy, Maintenance, Down, Deploying
+);
+
+INSERT INTO deploy_status (deploy_type, status) VALUES ('DEV', 'Healthy');
+INSERT INTO deploy_status (deploy_type, status) VALUES ('PROD', 'Healthy');
