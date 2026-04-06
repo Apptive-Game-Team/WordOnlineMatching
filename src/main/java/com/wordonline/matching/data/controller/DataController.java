@@ -1,7 +1,9 @@
 package com.wordonline.matching.data.controller;
 
+import com.wordonline.matching.data.domain.Parameter;
 import com.wordonline.matching.data.dto.GameConfigResponse;
 import com.wordonline.matching.data.dto.GameVersionResponse;
+import com.wordonline.matching.data.dto.ParameterEntryDto;
 import com.wordonline.matching.data.dto.ParametersResponse;
 import com.wordonline.matching.data.service.DataService;
 import com.wordonline.matching.magic.dto.MagicsResponse;
@@ -12,6 +14,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
+
+import java.util.Comparator;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @RequiredArgsConstructor
 @RestController
@@ -32,19 +40,25 @@ public class DataController {
     }
 
     /**
-     * Returns a version string representing the current config state.
-     * Clients use this for a lightweight staleness check before downloading full config.
+     * Lightweight version check. Uses the max of magic version and parameter version
+     * so clients re-fetch when either dataset changes.
      */
     @GetMapping("/version")
     public Mono<GameVersionResponse> getVersion() {
-        return magicDataService.getMagics(null)
-                .map(magics -> new GameVersionResponse(magics.version()));
+        Mono<MagicsResponse> magicsMono = magicDataService.getMagics(null);
+        Mono<ParametersResponse> paramsMono = dataService.getParameters(null);
+
+        return Mono.zip(magicsMono, paramsMono)
+                .map(tuple -> {
+                    String combined = combinedVersion(tuple.getT1().version(), tuple.getT2().getVersion());
+                    return new GameVersionResponse(combined);
+                });
     }
 
     /**
-     * Returns the full game config (magic recipes + balance parameters).
-     * Matches the shape expected by the Unity client's GameDataManager.
-     * Field name is magicRecipes (not magics) to match the client DTO.
+     * Full game config: magic recipes + balance parameters.
+     * parameters is a list of {group, key, value} entries so multi-word game object
+     * names (e.g. "fire_spirit") are unambiguous on the client side.
      */
     @GetMapping("/config")
     public Mono<GameConfigResponse> getConfig() {
@@ -52,10 +66,26 @@ public class DataController {
         Mono<ParametersResponse> paramsMono = dataService.getParameters(null);
 
         return Mono.zip(magicsMono, paramsMono)
-                .map(tuple -> new GameConfigResponse(
-                        tuple.getT1().version(),
-                        tuple.getT1().magics(),
-                        tuple.getT2().getParameters()
-                ));
+                .map(tuple -> {
+                    String version = combinedVersion(tuple.getT1().version(), tuple.getT2().getVersion());
+                    List<ParameterEntryDto> entries = toEntryList(tuple.getT2().getParameters());
+                    return new GameConfigResponse(version, tuple.getT1().magics(), entries);
+                });
+    }
+
+    /** Returns the max of two ISO-datetime version strings (lexicographic comparison is valid for ISO 8601). */
+    private static String combinedVersion(String v1, String v2) {
+        return Stream.of(v1, v2)
+                .filter(Objects::nonNull)
+                .max(Comparator.naturalOrder())
+                .orElse("0");
+    }
+
+    /** Converts List<Parameter> to list of {group, key, value} entries. */
+    private static List<ParameterEntryDto> toEntryList(List<Parameter> parameters) {
+        if (parameters == null) return List.of();
+        return parameters.stream()
+                .map(p -> new ParameterEntryDto(p.getGameObjectName(), p.getParamName(), p.getValue()))
+                .collect(Collectors.toList());
     }
 }
