@@ -99,6 +99,7 @@ public class WebSecurityConfig {
         http
                 .authorizeExchange(exchange -> exchange
                                 .pathMatchers(
+                                        "/api/deploy/status",
                                         "/healthcheck").permitAll()
                                 .anyExchange().authenticated()
                 );
