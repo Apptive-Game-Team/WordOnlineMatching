@@ -6,6 +6,10 @@ spring:
     name: word-online-matching
   config:
     import: optional:file:.env[.properties]
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
   r2dbc:
     url: ${DATABASE_URL}
     username: ${DATABASE_USERNAME}
