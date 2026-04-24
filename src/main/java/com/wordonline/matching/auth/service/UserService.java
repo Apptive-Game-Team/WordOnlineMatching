@@ -100,6 +100,12 @@ public class UserService {
                 .then();
     }
 
+    public Mono<Long> getMmr(Long userId) {
+        if (userId == null || userId < 0) return Mono.just(0L);
+        return findUserDomain(userId)
+                .map(user -> user.getMmr() != null ? user.getMmr() : 0L);
+    }
+
     public Mono<UserStatus> getStatus(Long userId) {
         if (userId == null || userId < 0){
             return Mono.empty();

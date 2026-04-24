@@ -57,10 +57,9 @@ class GameMatchService(
         return try {
             userService.markMatching(userId).awaitSingleOrNull()
             val hasDeck = deckService.hasSelectedDeck(userId).awaitSingle()
-            if (!hasDeck) {
-                throw IllegalStateException("Deck has not been selected")
-            }
-            matchingQueueRepository.enqueue(userId).awaitSingle()
+            if (!hasDeck) throw IllegalStateException("Deck has not been selected")
+            val mmr = userService.getMmr(userId).awaitSingle()
+            matchingQueueRepository.enqueue(userId, mmr).awaitSingleOrNull()
             true
         } catch (e: Exception) {
             userService.markOnline(userId).awaitSingleOrNull()
@@ -79,7 +78,7 @@ class GameMatchService(
                 userService.markOnline(userId).awaitSingleOrNull()
             }
 
-            val pair = matchingQueueRepository.dequeuePair().awaitSingle()
+            val pair = matchingQueueRepository.dequeueBestPair().awaitSingle()
             if (pair.size < 2) return@launch
 
             val uid1 = pair[0]
