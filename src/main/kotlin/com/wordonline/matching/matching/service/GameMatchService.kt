@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.reactor.awaitSingleOrNull
+import kotlinx.coroutines.reactive.collect
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 
@@ -74,6 +75,10 @@ class GameMatchService(
     @Scheduled(fixedRate = 5000)
     fun tryMatching() {
         scope.launch {
+            matchingQueueRepository.removeExpired().collect { userId ->
+                userService.markOnline(userId).awaitSingleOrNull()
+            }
+
             val pair = matchingQueueRepository.dequeuePair().awaitSingle()
             if (pair.size < 2) return@launch
 
