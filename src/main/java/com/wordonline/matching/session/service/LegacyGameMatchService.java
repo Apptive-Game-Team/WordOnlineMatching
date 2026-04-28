@@ -21,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
+import reactor.util.function.Tuples;
 
 @Slf4j
 @Service
@@ -35,71 +36,62 @@ public class LegacyGameMatchService {
 
     public Mono<MatchedInfoDto> createSession(SessionDto sessionDto) {
         Optional<Server> optionalServer = gameServerManagementService.getAvailableServer();
-        return getWebClient(optionalServer).flatMap(webClient -> webClient.post().uri("/api/server/game-sessions")
-                .body(Mono.just(sessionDto), SessionDto.class)
-                .accept(MediaType.APPLICATION_JSON)
-                .retrieve()
-                .bodyToMono(SimpleBooleanDto.class)
-                .map(SimpleBooleanDto::value)
-                .doOnNext(isSuccess -> log.info("Response from game server: {}", isSuccess))
-                .flatMap(isSuccess -> {
-                        if (!isSuccess) {
-                            return getException();
-                        }
-                        log.info("Session Created");
-                        return getUserDetails(sessionDto.uid1(), sessionDto.uid2());
-                })
-                .map(tuple ->
-                {
-                    MatchedInfoDto matchedInfoDto = new MatchedInfoDto(
-                            "Successfully Matched",
-                            optionalServer.get().getUrl(),
-                            tuple.getT1(),
-                            tuple.getT2(),
-                            sessionDto.sessionId()
-                    );
-                    sessionRecoveryStore.storeMatchInfo(matchedInfoDto);
-                    return matchedInfoDto;
-                }));
+        return getWebClient(optionalServer).flatMap(webClient ->
+                webClient.post().uri("/api/server/game-sessions")
+                        .body(Mono.just(sessionDto), SessionDto.class)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .retrieve()
+                        .bodyToMono(SimpleBooleanDto.class)
+                        .map(SimpleBooleanDto::value)
+                        .doOnNext(isSuccess -> log.info("Response from game server: {}", isSuccess))
+                        .flatMap(isSuccess -> {
+                            if (!isSuccess) return getException();
+                            log.info("Session Created");
+                            return getUserDetails(sessionDto.getUid1(), sessionDto.getUid2())
+                                    .flatMap(tuple -> {
+                                        MatchedInfoDto matchedInfoDto = new MatchedInfoDto(
+                                                "Successfully Matched",
+                                                optionalServer.get().getUrl(),
+                                                tuple.getT1(),
+                                                tuple.getT2(),
+                                                sessionDto.getSessionId()
+                                        );
+                                        return sessionRecoveryStore.storeMatchInfo(matchedInfoDto)
+                                                .thenReturn(matchedInfoDto);
+                                    });
+                        }));
     }
 
     public Mono<MatchedInfoDto> getMatchInfo(long userId) {
-        SessionRecoveryInfo sessionRecoveryInfo = sessionRecoveryStore.getSessionInfo(userId);
-        if (sessionRecoveryInfo == null) {
-            return Mono.error(new IllegalArgumentException("Session Not Found"));
-        }
-        return checkSessionActive(sessionRecoveryInfo.sessionId())
-                .flatMap(isActive -> {
-                    if (isActive) {
-                        return mapToMatchedInfo(sessionRecoveryInfo);
-                    }
-                    return Mono.error(new IllegalArgumentException("Session Already Deactivated"));
-                });
+        return sessionRecoveryStore.getSessionInfo(userId)
+                .switchIfEmpty(Mono.error(new IllegalArgumentException("Session Not Found")))
+                .flatMap(sessionRecoveryInfo ->
+                        checkSessionActive(sessionRecoveryInfo.sessionId())
+                                .flatMap(isActive -> {
+                                    if (isActive) return mapToMatchedInfo(sessionRecoveryInfo);
+                                    return Mono.error(new IllegalArgumentException("Session Already Deactivated"));
+                                }));
     }
 
     private Mono<MatchedInfoDto> mapToMatchedInfo(SessionRecoveryInfo sessionRecoveryInfo) {
         return getUserDetails(sessionRecoveryInfo.leftUserId(), sessionRecoveryInfo.rightUserId())
-                .map(tuple ->
-                        new MatchedInfoDto(
-                                sessionRecoveryInfo,
-                                tuple.getT1(),
-                                tuple.getT2()
-                        ));
+                .map(tuple -> new MatchedInfoDto(sessionRecoveryInfo, tuple.getT1(), tuple.getT2()));
     }
 
     private Mono<Tuple2<UserDetailResponseDto, UserDetailResponseDto>> getUserDetails(long userId1, Long userId2) {
         return Mono.zip(
                 userService.getUserDetail(userId1),
-                userId2 != null ? userService.getUserDetail(userId2) : Mono.just(new UserDetailResponseDto(0L, "dummy", "dummy@team6515.com"))
+                userId2 != null ? userService.getUserDetail(userId2)
+                        : Mono.just(new UserDetailResponseDto(0L, "dummy", "dummy@team6515.com"))
         );
     }
 
     private Mono<Boolean> checkSessionActive(String sessionId) {
         return getWebClient().flatMap(webClient ->
                 webClient.get().uri("/api/server/game-sessions/" + sessionId + "/active")
-                    .retrieve()
-                    .bodyToMono(SimpleBooleanDto.class)
-                    .map(SimpleBooleanDto::value));
+                        .retrieve()
+                        .bodyToMono(SimpleBooleanDto.class)
+                        .map(SimpleBooleanDto::value));
     }
 
     private <T> Mono<T> getException() {
@@ -117,6 +109,6 @@ public class LegacyGameMatchService {
     private Mono<WebClient> getWebClient(Optional<Server> server) {
         return Mono.justOrEmpty(server)
                 .switchIfEmpty(Mono.error(new IllegalStateException("No available server found")))
-                .map(notNullserver -> webClientBuilder.baseUrl(notNullserver.getUrl()).build());
+                .map(notNullServer -> webClientBuilder.baseUrl(notNullServer.getUrl()).build());
     }
 }

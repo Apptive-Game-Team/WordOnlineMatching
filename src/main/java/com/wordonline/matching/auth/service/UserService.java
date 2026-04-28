@@ -12,6 +12,7 @@ import com.wordonline.matching.auth.dto.UserResponseDto;
 import com.wordonline.matching.auth.repository.UserRepository;
 import com.wordonline.matching.matching.client.AccountClient;
 import com.wordonline.matching.global.service.LocalizationService;
+import com.wordonline.matching.matching.repository.MatchingQueueRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +27,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final AccountClient accountClient;
     private final LocalizationService localizationService;
+    private final MatchingQueueRepository matchingQueueRepository;
 
     public Mono<UserResponseDto> getUser(long memberId) {
         return findUserDomain(memberId)
@@ -98,12 +100,25 @@ public class UserService {
                 .then();
     }
 
+    public Mono<Long> getMmr(Long userId) {
+        if (userId == null || userId < 0) return Mono.just(0L);
+        return findUserDomain(userId)
+                .map(user -> user.getMmr() != null ? user.getMmr() : 0L);
+    }
+
     public Mono<UserStatus> getStatus(Long userId) {
         if (userId == null || userId < 0){
             return Mono.empty();
         }
 
-        return findUserDomain(userId)
-                .map(User::getStatus);
+        return matchingQueueRepository.isInQueue(userId)
+            .flatMap(isIn -> {
+                if (isIn) {
+                    return Mono.just(UserStatus.OnMatching);
+                } else {
+                    return findUserDomain(userId)
+                            .map(User::getStatus);
+                }
+            });
     }
 }

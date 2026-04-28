@@ -1,42 +1,57 @@
 package com.wordonline.matching.session.service;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
-
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wordonline.matching.matching.dto.MatchedInfoDto;
 import com.wordonline.matching.session.domain.SessionRecoveryInfo;
-
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
+import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
+
+import java.time.Duration;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class SessionRecoveryStore {
 
-    private final Map<Long, SessionRecoveryInfo> sessionMap = new ConcurrentHashMap<>();
+    private static final String KEY_PREFIX = "matching:result:";
+    private static final Duration TTL = Duration.ofMinutes(10);
 
-    public SessionRecoveryInfo getSessionInfo(Long userId) {
-        return sessionMap.get(userId);
+    private final ReactiveStringRedisTemplate redisTemplate;
+    private final ObjectMapper objectMapper;
+
+    public Mono<SessionRecoveryInfo> getSessionInfo(Long userId) {
+        return redisTemplate.opsForValue().get(KEY_PREFIX + userId)
+                .mapNotNull(json -> {
+                    try {
+                        return objectMapper.readValue(json, SessionRecoveryInfo.class);
+                    } catch (JsonProcessingException e) {
+                        log.error("Failed to deserialize SessionRecoveryInfo for userId {}", userId, e);
+                        return null;
+                    }
+                });
     }
 
-    public void storeMatchInfo(MatchedInfoDto matchedInfoDto) {
-        SessionRecoveryInfo sessionRecoveryInfo = new SessionRecoveryInfo(matchedInfoDto);
-        storeMatchInfo(matchedInfoDto.getLeftUser().id(), sessionRecoveryInfo);
-        storeMatchInfo(matchedInfoDto.getRightUser().id(), sessionRecoveryInfo);
-    }
-
-    private void storeMatchInfo(Long userId, SessionRecoveryInfo sessionRecoveryInfo) {
-        if (userId < 0) {
-            return;
+    public Mono<Void> storeMatchInfo(MatchedInfoDto matchedInfoDto) {
+        SessionRecoveryInfo info = new SessionRecoveryInfo(matchedInfoDto);
+        String json;
+        try {
+            json = objectMapper.writeValueAsString(info);
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize SessionRecoveryInfo", e);
+            return Mono.empty();
         }
-        sessionMap.put(userId, sessionRecoveryInfo);
+
+        Mono<Boolean> storeLeft = storeForUser(matchedInfoDto.getLeftUser().id(), json);
+        Mono<Boolean> storeRight = storeForUser(matchedInfoDto.getRightUser().id(), json);
+        return Mono.when(storeLeft, storeRight);
     }
 
-    @Scheduled(fixedRate = 60 * 1000)
-    public void cleanupExpiredSessions() {
-        log.info("[SessionRecoveryStore] Cleaning expired sessions");
-        sessionMap.entrySet().removeIf(entry -> entry.getValue().isExpired());
+    private Mono<Boolean> storeForUser(Long userId, String json) {
+        if (userId == null || userId < 0) return Mono.just(true);
+        return redisTemplate.opsForValue().set(KEY_PREFIX + userId, json, TTL);
     }
 }

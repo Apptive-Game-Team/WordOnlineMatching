@@ -19,8 +19,9 @@ public class User {
     @Setter
     private Long selectedDeckId;
     private Integer totalWins;
+    private Long mmr;
 
     public User(long memberId) {
-        this(memberId, UserStatus.Online, null, 0);
+        this(memberId, UserStatus.Online, null, 0, null);
     }
 }
