@@ -25,7 +25,7 @@ class GameMatchService(
     private val legacyGameMatchService: LegacyGameMatchService,
     private val userService: UserService,
     private val deckService: DeckService,
-    private val matchingQueueRepository: MatchingQueueRepository,
+    private val matchingQueueRepository: MatchingQueueRepository
 ) {
     private val scope = CoroutineScope(Dispatchers.Default)
 
@@ -69,6 +69,7 @@ class GameMatchService(
 
     suspend fun removeFromQueue(userId: Long) {
         matchingQueueRepository.remove(userId).awaitSingleOrNull()
+        userService.markMatching(userId).awaitSingleOrNull()
     }
 
     @Scheduled(fixedRate = 5000)
