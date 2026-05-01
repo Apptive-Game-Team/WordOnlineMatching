@@ -69,7 +69,7 @@ class GameMatchService(
 
     suspend fun removeFromQueue(userId: Long) {
         matchingQueueRepository.remove(userId).awaitSingleOrNull()
-        userService.markMatching(userId).awaitSingleOrNull()
+        userService.markOnline(userId).awaitSingleOrNull()
     }
 
     @Scheduled(fixedRate = 5000)
