@@ -18,7 +18,7 @@ import java.time.Duration;
 public class SessionRecoveryStore {
 
     private static final String KEY_PREFIX = "matching:result:";
-    private static final Duration TTL = Duration.ofMinutes(10);
+    private static final Duration TTL = Duration.ofMinutes(5);
 
     private final ReactiveStringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;

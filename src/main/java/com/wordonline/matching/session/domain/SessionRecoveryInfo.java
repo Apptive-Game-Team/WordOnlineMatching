@@ -12,7 +12,7 @@ public record SessionRecoveryInfo(
         long expireAt
 ) {
 
-    private final static long TTL = 10 * 60 * 1000;
+    private final static long TTL = 5 * 60 * 1000;
 
     public SessionRecoveryInfo(MatchedInfoDto matchedInfoDto) {
         this(

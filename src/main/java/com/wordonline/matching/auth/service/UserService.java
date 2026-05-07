@@ -13,6 +13,9 @@ import com.wordonline.matching.auth.repository.UserRepository;
 import com.wordonline.matching.matching.client.AccountClient;
 import com.wordonline.matching.global.service.LocalizationService;
 import com.wordonline.matching.matching.repository.MatchingQueueRepository;
+import com.wordonline.matching.server.dto.RoomInfoDto;
+import com.wordonline.matching.server.service.GameSessionService;
+import com.wordonline.matching.session.service.SessionRecoveryStore;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +31,8 @@ public class UserService {
     private final AccountClient accountClient;
     private final LocalizationService localizationService;
     private final MatchingQueueRepository matchingQueueRepository;
+    private final SessionRecoveryStore sessionRecoveryStore;
+    private final GameSessionService gameSessionService;
 
     public Mono<UserResponseDto> getUser(long memberId) {
         return findUserDomain(memberId)
@@ -115,10 +120,19 @@ public class UserService {
             .flatMap(isIn -> {
                 if (isIn) {
                     return Mono.just(UserStatus.OnMatching);
-                } else {
-                    return findUserDomain(userId)
-                            .map(User::getStatus);
                 }
+
+                return sessionRecoveryStore.getSessionInfo(userId)
+                        .flatMap(sessionInfo -> gameSessionService.getAllGameSessions()
+                                .map(roomList -> roomList.rooms().stream()
+                                        .anyMatch(room -> isUserInRoom(userId, room))
+                                        ? UserStatus.OnPlaying
+                                        : UserStatus.Online))
+                        .defaultIfEmpty(UserStatus.Online);
             });
+    }
+
+    private boolean isUserInRoom(Long userId, RoomInfoDto room) {
+        return userId.equals(room.leftUserId()) || userId.equals(room.rightUserId());
     }
 }
