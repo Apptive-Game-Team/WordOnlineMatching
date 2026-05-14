@@ -14,7 +14,7 @@ class MatchingQueueRepository(
         private const val QUEUE_KEY = "matching:queue"
         private const val MMR_KEY = "matching:mmr"
         private const val COUNTER_KEY = "matching:session-counter"
-        private const val TIMEOUT_MS = 30_000L
+          private const val TIMEOUT_MS = 5 * 60 * 1000L
     }
 
     fun enqueue(userId: Long, mmr: Long): Mono<Void> =

@@ -8,11 +8,13 @@ import com.wordonline.matching.matching.dto.SimpleMessageDto
 import com.wordonline.matching.matching.repository.MatchingQueueRepository
 import com.wordonline.matching.session.service.LegacyGameMatchService
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.reactor.awaitSingleOrNull
 import kotlinx.coroutines.reactive.collect
+import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 
@@ -24,7 +26,11 @@ class GameMatchService(
     private val deckService: DeckService,
     private val matchingQueueRepository: MatchingQueueRepository
 ) {
-    private val scope = CoroutineScope(Dispatchers.Default)
+    private val log = LoggerFactory.getLogger(javaClass)
+    private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        log.error("Unexpected error while trying to match users", throwable)
+    }
+    private val scope = CoroutineScope(Dispatchers.Default + exceptionHandler)
 
     suspend fun matchPractice(userId: Long): MatchedInfoDto {
         val sessionId = "bot-${matchingQueueRepository.nextSessionId().awaitSingle()}"
@@ -48,6 +54,9 @@ class GameMatchService(
 
     private suspend fun enqueue(userId: Long): Boolean {
         if (matchingQueueRepository.isInQueue(userId).awaitSingle()) {
+            val mmr = userService.getMmr(userId).awaitSingle()
+            matchingQueueRepository.enqueue(userId, mmr).awaitSingleOrNull()
+            log.info("Matching queue entry refreshed: userId={}, mmr={}", userId, mmr)
             return true
         }
 
@@ -57,8 +66,10 @@ class GameMatchService(
             if (!hasDeck) throw IllegalStateException("Deck has not been selected")
             val mmr = userService.getMmr(userId).awaitSingle()
             matchingQueueRepository.enqueue(userId, mmr).awaitSingleOrNull()
+            log.info("User enqueued for matching: userId={}, mmr={}", userId, mmr)
             true
         } catch (e: Exception) {
+            log.warn("Failed to enqueue user for matching: userId={}", userId, e)
             userService.markOnline(userId).awaitSingleOrNull()
             false
         }
@@ -74,6 +85,7 @@ class GameMatchService(
         scope.launch {
             matchingQueueRepository.removeExpired().collect { userId ->
                 if (!matchingQueueRepository.isInQueue(userId).awaitSingle()) {
+                    log.info("Expired matching queue entry removed: userId={}", userId)
                     userService.markOnline(userId).awaitSingleOrNull()
                 }
             }
@@ -88,9 +100,11 @@ class GameMatchService(
 
             try {
                 legacyGameMatchService.createSession(sessionDto).awaitSingle()
+                log.info("Users matched: uid1={}, uid2={}, sessionId={}", uid1, uid2, sessionId)
                 userService.markPlaying(uid1).awaitSingleOrNull()
                 userService.markPlaying(uid2).awaitSingleOrNull()
             } catch (e: Exception) {
+                log.error("Failed to create matched session: uid1={}, uid2={}, sessionId={}", uid1, uid2, sessionId, e)
                 userService.markOnline(uid1).awaitSingleOrNull()
                 userService.markOnline(uid2).awaitSingleOrNull()
             } finally {
