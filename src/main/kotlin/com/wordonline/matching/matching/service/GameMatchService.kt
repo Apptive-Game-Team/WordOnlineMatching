@@ -9,9 +9,6 @@ import com.wordonline.matching.matching.repository.MatchingQueueRepository
 import com.wordonline.matching.session.service.LegacyGameMatchService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.reactor.awaitSingleOrNull
@@ -76,7 +73,9 @@ class GameMatchService(
     fun tryMatching() {
         scope.launch {
             matchingQueueRepository.removeExpired().collect { userId ->
-                userService.markOnline(userId).awaitSingleOrNull()
+                if (!matchingQueueRepository.isInQueue(userId).awaitSingle()) {
+                    userService.markOnline(userId).awaitSingleOrNull()
+                }
             }
 
             val pair = matchingQueueRepository.dequeueBestPair().awaitSingle()
