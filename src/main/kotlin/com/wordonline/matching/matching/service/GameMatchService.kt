@@ -94,6 +94,9 @@ class GameMatchService(
             } catch (e: Exception) {
                 userService.markOnline(uid1).awaitSingleOrNull()
                 userService.markOnline(uid2).awaitSingleOrNull()
+            } finally {
+                matchingQueueRepository.remove(uid1).awaitSingleOrNull()
+                matchingQueueRepository.remove(uid2).awaitSingleOrNull()
             }
         }
     }
