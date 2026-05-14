@@ -2,6 +2,7 @@ package com.wordonline.matching.matching.repository
 
 import org.springframework.data.domain.Range
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
+import org.springframework.data.redis.core.script.RedisScript
 import org.springframework.stereotype.Repository
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -15,6 +16,19 @@ class MatchingQueueRepository(
         private const val MMR_KEY = "matching:mmr"
         private const val COUNTER_KEY = "matching:session-counter"
         private const val TIMEOUT_MS = 30_000L
+        private val REMOVE_EXPIRED_SCRIPT: RedisScript<List<*>> = RedisScript.of(
+            """
+            local expired = redis.call('ZRANGEBYSCORE', KEYS[1], '-inf', ARGV[1])
+            local removed = {}
+            for _, member in ipairs(expired) do
+                redis.call('ZREM', KEYS[1], member)
+                redis.call('HDEL', KEYS[2], member)
+                table.insert(removed, member)
+            end
+            return removed
+            """.trimIndent(),
+            List::class.java
+        ) as RedisScript<List<*>>
     }
 
     fun enqueue(userId: Long, mmr: Long): Mono<Void> =
@@ -26,7 +40,7 @@ class MatchingQueueRepository(
     fun isInQueue(userId: Long): Mono<Boolean> =
         redisTemplate.opsForZSet()
             .score(QUEUE_KEY, userId.toString() as Any)
-            .map { true }
+            .map { it > expiredBefore() }
             .defaultIfEmpty(false)
 
     fun dequeueBestPair(): Mono<List<Long>> =
@@ -61,21 +75,19 @@ class MatchingQueueRepository(
         redisTemplate.opsForValue().increment(COUNTER_KEY)
 
     fun removeExpired(): Flux<Long> {
-        val expiredBefore = (System.currentTimeMillis() - TIMEOUT_MS).toDouble()
-        val range = Range.closed(Double.NEGATIVE_INFINITY, expiredBefore)
+        val expiredBefore = expiredBefore()
 
-        return redisTemplate.opsForZSet().rangeByScore(QUEUE_KEY, range)
-            .map { it.toLong() }
-            .collectList()
-            .flatMapMany { expiredIds ->
-                if (expiredIds.isEmpty()) return@flatMapMany Flux.empty()
-                val idStrings = expiredIds.map { it.toString() }.toTypedArray()
-                Mono.`when`(
-                    redisTemplate.opsForZSet().removeRangeByScore(QUEUE_KEY, range),
-                    redisTemplate.opsForHash<String, String>().remove(MMR_KEY, *idStrings),
-                ).thenMany(Flux.fromIterable(expiredIds))
-            }
+        return redisTemplate.execute(
+            REMOVE_EXPIRED_SCRIPT,
+            listOf(QUEUE_KEY, MMR_KEY),
+            listOf(expiredBefore.toString()),
+        )
+            .flatMapIterable { it }
+            .map { it.toString().toLong() }
     }
+
+    private fun expiredBefore(): Double =
+        (System.currentTimeMillis() - TIMEOUT_MS).toDouble()
 
     private fun findClosestPair(sorted: List<Pair<Long, Long>>): Pair<Long, Long> {
         var minDiff = Long.MAX_VALUE
