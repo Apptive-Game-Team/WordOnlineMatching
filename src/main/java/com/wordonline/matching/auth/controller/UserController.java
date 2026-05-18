@@ -2,6 +2,8 @@ package com.wordonline.matching.auth.controller;
 
 import java.util.Map;
 
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -11,8 +13,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.wordonline.matching.auth.dto.UserResponseDto;
+import com.wordonline.matching.auth.dto.UserStatisticsGamesResponseDto;
+import com.wordonline.matching.auth.dto.UserStatisticsOverviewResponseDto;
 import com.wordonline.matching.auth.service.UserId;
 import com.wordonline.matching.auth.service.UserService;
+import com.wordonline.matching.auth.service.UserStatisticsService;
 import com.wordonline.matching.matching.dto.MatchedInfoDto;
 import com.wordonline.matching.quest.dto.QuestCheckResponseDto;
 import com.wordonline.matching.quest.service.QuestService;
@@ -29,6 +34,7 @@ import reactor.core.publisher.Mono;
 public class UserController {
 
     private final UserService userService;
+    private final UserStatisticsService userStatisticsService;
     private final LegacyGameMatchService gameMatchService;
     private final QuestService questService;
 
@@ -50,6 +56,21 @@ public class UserController {
     ) {
         return userService.getStatus(userId)
                 .map(status -> Map.of("status", status.name()));
+    }
+
+    @GetMapping("/mine/statistics/overview")
+    public Mono<UserStatisticsOverviewResponseDto> getMyStatisticsOverview(
+            @UserId Long userId
+    ) {
+        return userStatisticsService.getOverview(userId);
+    }
+
+    @GetMapping("/mine/statistics/games")
+    public Mono<UserStatisticsGamesResponseDto> getMyStatisticsGames(
+            @UserId Long userId,
+            @PageableDefault(size = 20) Pageable pageable
+    ) {
+        return userStatisticsService.getGames(userId, pageable);
     }
 
     @GetMapping("/mine/match-info")
