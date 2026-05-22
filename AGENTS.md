@@ -31,6 +31,12 @@ Tests use JUnit 5, Spring Boot Test, Spring Security Test, and Reactor Test. Nam
 
 Recent history uses short conventional-style prefixes such as `feat:`, `fix:`, and `refactor(...)`, often with linked issue numbers like `(#36)`. Keep commits scoped to one concern. PRs should describe behavior changes, link the GitHub issue, mention affected endpoints, and note any required database migration or client/game-server/account-server coordination.
 
+Workflow for tracked work in this repo:
+- Create a GitHub issue before implementation when the user asks for end-to-end delivery.
+- Create and work on a dedicated branch per issue.
+- Use branch names in the form `<issue-label>/<issue-num>` such as `feature/123`.
+- After implementation and verification, open a PR linked to the issue.
+
 ## Security & Configuration Tips
 
 Do not commit secrets or local `.env` values. JWT keys, database credentials, Redis settings, and account server URLs must remain environment-driven. Database schema changes belong in `WordOnlineDatabase`; treat lobby-server `schema.sql` as stale/local reference material unless verified against the database repo.

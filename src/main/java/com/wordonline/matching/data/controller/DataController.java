@@ -13,6 +13,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/data")
@@ -37,8 +40,11 @@ public class DataController {
      */
     @GetMapping("/version")
     public Mono<GameVersionResponse> getVersion() {
-        return magicDataService.getMagics(null)
-                .map(magics -> new GameVersionResponse(magics.version()));
+        return Mono.zip(magicDataService.getMagics(null), dataService.getParameters(null))
+                .map(tuple -> new GameVersionResponse(resolveLatestVersion(
+                        tuple.getT1().version(),
+                        tuple.getT2().getVersion()
+                )));
     }
 
     /**
@@ -53,9 +59,24 @@ public class DataController {
 
         return Mono.zip(magicsMono, paramsMono)
                 .map(tuple -> new GameConfigResponse(
-                        tuple.getT1().version(),
+                        resolveLatestVersion(tuple.getT1().version(), tuple.getT2().getVersion()),
                         tuple.getT1().magics(),
                         tuple.getT2().getParameters()
                 ));
+    }
+
+    private String resolveLatestVersion(String firstVersion, String secondVersion) {
+        if (firstVersion == null || firstVersion.isEmpty()) {
+            return secondVersion;
+        }
+
+        if (secondVersion == null || secondVersion.isEmpty()) {
+            return firstVersion;
+        }
+
+        LocalDateTime firstTimestamp = LocalDateTime.parse(firstVersion, DateTimeFormatter.ISO_DATE_TIME);
+        LocalDateTime secondTimestamp = LocalDateTime.parse(secondVersion, DateTimeFormatter.ISO_DATE_TIME);
+
+        return firstTimestamp.isAfter(secondTimestamp) ? firstVersion : secondVersion;
     }
 }

@@ -15,7 +15,11 @@ public interface ParameterValueRepository extends R2dbcRepository<ParameterValue
         FROM
             parameter_values pv
         WHERE
-            pv.updated_at > :timestamp
+            pv.game_object_id IN (
+                SELECT DISTINCT updated.game_object_id
+                FROM parameter_values updated
+                WHERE updated.updated_at > :timestamp
+            )
     """)
     Flux<ParameterValue> findAllUpdatedSince(LocalDateTime timestamp);
 
