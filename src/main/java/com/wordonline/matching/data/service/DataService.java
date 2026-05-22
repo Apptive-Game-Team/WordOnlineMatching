@@ -32,7 +32,7 @@ public class DataService {
 
     public Mono<ParametersResponse> getParameters(String currentVersion) {
         if (currentVersion == null || currentVersion.isEmpty()) {
-            return buildParametersResponse(parameterValueRepository.findAllParameters(), null, false);
+            return buildParametersResponse(parameterValueRepository.findAllParameters(), null, true);
         }
 
         LocalDateTime timestamp = LocalDateTime.parse(currentVersion, DateTimeFormatter.ISO_DATE_TIME);
@@ -49,13 +49,13 @@ public class DataService {
     private Mono<ParametersResponse> buildParametersResponse(
             Flux<ParameterValue> parameterValuesFlux,
             String fallbackVersion,
-            boolean changed
+            boolean requiresRefresh
     ) {
         return parameterValuesFlux
                 .collectList()
                 .flatMap(parameterValues -> {
                     if (parameterValues.isEmpty()) {
-                        return Mono.just(new ParametersResponse(List.of(), fallbackVersion, changed));
+                        return Mono.just(new ParametersResponse(List.of(), fallbackVersion, requiresRefresh));
                     }
 
                     List<Long> gameObjectIds = parameterValues.stream()
@@ -94,7 +94,7 @@ public class DataService {
                                 String version = (maxUpdatedAt != null)
                                         ? maxUpdatedAt.format(DateTimeFormatter.ISO_DATE_TIME)
                                         : fallbackVersion;
-                                return new ParametersResponse(domainParameters, version, changed);
+                                return new ParametersResponse(domainParameters, version, requiresRefresh);
                             });
                 });
     }

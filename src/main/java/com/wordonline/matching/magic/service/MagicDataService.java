@@ -35,7 +35,7 @@ public class MagicDataService {
     @Transactional(readOnly = true)
     public Mono<MagicsResponse> getMagics(String currentVersion) {
         if (currentVersion == null || currentVersion.isEmpty()) {
-            return buildMagicsResponse(magicCardRepository.findAll(), null, false);
+            return buildMagicsResponse(magicCardRepository.findAll(), null, true);
         }
 
         LocalDateTime timestamp = LocalDateTime.parse(currentVersion, DateTimeFormatter.ISO_DATE_TIME);
@@ -52,13 +52,13 @@ public class MagicDataService {
     private Mono<MagicsResponse> buildMagicsResponse(
             Flux<MagicCard> magicCardsFlux,
             String fallbackVersion,
-            boolean changed
+            boolean requiresRefresh
     ) {
         return magicCardsFlux
                 .collectList()
                 .flatMap(magicCards -> {
                     if (magicCards.isEmpty()) {
-                        return Mono.just(new MagicsResponse(fallbackVersion, List.of(), changed));
+                        return Mono.just(new MagicsResponse(fallbackVersion, List.of(), requiresRefresh));
                     }
 
                     List<Long> magicIds = magicCards.stream()
@@ -110,7 +110,7 @@ public class MagicDataService {
                                         ? maxUpdatedAt.format(DateTimeFormatter.ISO_DATE_TIME)
                                         : fallbackVersion;
 
-                                return new MagicsResponse(version, magicDtos, changed);
+                                return new MagicsResponse(version, magicDtos, requiresRefresh);
                             });
                 });
     }

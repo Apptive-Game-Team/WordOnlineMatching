@@ -31,7 +31,7 @@
     }
   ],
   "version": "2023-01-01T15:30:00",
-  "changed": true
+  "requiresRefresh": true
 }
 ```
 
@@ -40,7 +40,7 @@
     -   `paramName` (String): 파라미터의 이름.
     -   `value` (Double): 파라미터의 값.
 -   **version** (String): 응답에 포함된 파라미터 중 가장 마지막에 업데이트된 시간 (ISO-8601 형식). `currentVersion` 파라미터가 제공되었지만 새로운 데이터가 없는 경우, 제공된 `currentVersion` 값이 그대로 반환될 수 있습니다. 변경 사항이 하나라도 감지되면 전체 파라미터 스냅샷이 반환되며, 버전은 그 스냅샷의 최신 타임스탬프가 됩니다.
--   **changed** (Boolean): `currentVersion` 기준으로 변경 사항이 감지되었는지 여부. 변경이 없으면 `false`, 변경이 있으면 전체 스냅샷과 함께 `true`를 반환합니다.
+-   **requiresRefresh** (Boolean): 클라이언트가 전체 데이터를 다시 받아야 하는 경우 `true`, `currentVersion` 기준으로 변경이 없어 빈 응답을 반환하는 경우 `false`입니다.
 
 ### Example Usage
 

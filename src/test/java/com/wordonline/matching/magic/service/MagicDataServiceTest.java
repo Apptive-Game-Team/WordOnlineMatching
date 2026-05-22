@@ -70,7 +70,30 @@ class MagicDataServiceTest {
                 .assertNext(response -> {
                     assertFullMagicSnapshot(response);
                     assert response.version().equals("2024-01-02T12:00:00");
-                    assert response.changed();
+                    assert response.requiresRefresh();
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    @DisplayName("버전없이_조회시_전체_스냅샷과_changed_true를_반환")
+    void getMagics_WithoutVersion_ReturnsFullSnapshotAndChangedTrue() {
+        LocalDateTime updatedAt = LocalDateTime.parse("2024-01-02T12:00:00");
+        MagicCard magicCard = new MagicCard(1L, 10L, 100L, updatedAt);
+        Card fireCard = mockCard(100L, CardType.Fire);
+
+        when(magicCardRepository.findAll())
+                .thenReturn(Flux.just(magicCard));
+        when(magicRepository.findAllById(List.of(10L)))
+                .thenReturn(Flux.just(new Magic(10L, "fireball")));
+        when(cardRepository.findAllById(List.of(100L)))
+                .thenReturn(Flux.just(fireCard));
+
+        StepVerifier.create(magicDataService.getMagics(null))
+                .assertNext(response -> {
+                    assert response.magics().size() == 1;
+                    assert response.version().equals("2024-01-02T12:00:00");
+                    assert response.requiresRefresh();
                 })
                 .verifyComplete();
     }
@@ -87,7 +110,7 @@ class MagicDataServiceTest {
                 .assertNext(response -> {
                     assert response.magics().isEmpty();
                     assert response.version().equals(currentVersion);
-                    assert !response.changed();
+                    assert !response.requiresRefresh();
                 })
                 .verifyComplete();
     }

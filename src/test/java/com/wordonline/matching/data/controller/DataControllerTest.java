@@ -39,7 +39,7 @@ class DataControllerTest {
     @DisplayName("마법_전체_조회_버전없음_성공")
     void getMagics_WithoutVersion_ReturnsAllMagics() {
         MagicDto magicDto = new MagicDto(1L, "fireball", List.of("Fire", "Fire", "Shoot"));
-        MagicsResponse mockResponse = new MagicsResponse("2024-01-01T00:00:00", List.of(magicDto), false);
+        MagicsResponse mockResponse = new MagicsResponse("2024-01-01T00:00:00", List.of(magicDto), true);
 
         when(magicDataService.getMagics(isNull())).thenReturn(Mono.just(mockResponse));
 
@@ -56,7 +56,7 @@ class DataControllerTest {
                     assert response.magics().get(0).id().equals(1L);
                     assert response.magics().get(0).name().equals("fireball");
                     assert response.magics().get(0).cards().equals(List.of("Fire", "Fire", "Shoot"));
-                    assert !response.changed();
+                    assert response.requiresRefresh();
                 });
     }
 
@@ -78,7 +78,7 @@ class DataControllerTest {
                 .value(response -> {
                     assert response.version().equals(currentVersion);
                     assert response.magics().isEmpty();
-                    assert !response.changed();
+                    assert !response.requiresRefresh();
                 });
     }
 
@@ -86,9 +86,9 @@ class DataControllerTest {
     @DisplayName("버전_조회_파라미터가_더_최신이면_그_버전을_반환")
     void getVersion_ReturnsLatestVersionAcrossConfigSources() {
         when(magicDataService.getMagics(isNull()))
-                .thenReturn(Mono.just(new MagicsResponse("2024-01-01T00:00:00", List.of(), false)));
+                .thenReturn(Mono.just(new MagicsResponse("2024-01-01T00:00:00", List.of(), true)));
         when(dataService.getParameters(isNull()))
-                .thenReturn(Mono.just(new ParametersResponse(List.of(), "2024-01-02T00:00:00", false)));
+                .thenReturn(Mono.just(new ParametersResponse(List.of(), "2024-01-02T00:00:00", true)));
 
         webTestClient
                 .mutateWith(SecurityMockServerConfigurers.mockJwt().jwt(jwt -> jwt.claim("memberId", "1")))
@@ -109,9 +109,9 @@ class DataControllerTest {
         Parameter parameter = new Parameter("player", "max_hp", 100.0);
 
         when(magicDataService.getMagics(isNull()))
-                .thenReturn(Mono.just(new MagicsResponse("2024-01-01T00:00:00", List.of(magicDto), false)));
+                .thenReturn(Mono.just(new MagicsResponse("2024-01-01T00:00:00", List.of(magicDto), true)));
         when(dataService.getParameters(isNull()))
-                .thenReturn(Mono.just(new ParametersResponse(List.of(parameter), "2024-01-03T00:00:00", false)));
+                .thenReturn(Mono.just(new ParametersResponse(List.of(parameter), "2024-01-03T00:00:00", true)));
 
         webTestClient
                 .mutateWith(SecurityMockServerConfigurers.mockJwt().jwt(jwt -> jwt.claim("memberId", "1")))

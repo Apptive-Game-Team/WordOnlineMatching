@@ -94,7 +94,35 @@ class DataServiceTest {
                 .assertNext(response -> {
                     assertResponseContainsFullParameterSnapshot(response);
                     assert response.getVersion().equals("2024-01-02T12:00:00");
-                    assert response.isChanged();
+                    assert response.isRequiresRefresh();
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    @DisplayName("버전없이_조회시_전체_스냅샷과_changed_true를_반환")
+    void getParameters_WithoutVersion_ReturnsFullSnapshotAndChangedTrue() {
+        LocalDateTime updatedAt = LocalDateTime.parse("2024-01-02T12:00:00");
+        ParameterValue parameterValue = ParameterValue.builder()
+                .id(1L)
+                .gameObjectId(10L)
+                .parameterId(100L)
+                .value(100.0)
+                .updatedAt(updatedAt)
+                .build();
+
+        when(parameterValueRepository.findAllParameters())
+                .thenReturn(Flux.just(parameterValue));
+        when(gameObjectRepository.findAllById(List.of(10L)))
+                .thenReturn(Flux.just(new GameObject(10L, "player")));
+        when(parameterRepository.findAllById(List.of(100L)))
+                .thenReturn(Flux.just(new Parameter(100L, "max_hp")));
+
+        StepVerifier.create(dataService.getParameters(null))
+                .assertNext(response -> {
+                    assert response.getParameters().size() == 1;
+                    assert response.getVersion().equals("2024-01-02T12:00:00");
+                    assert response.isRequiresRefresh();
                 })
                 .verifyComplete();
     }
@@ -111,7 +139,7 @@ class DataServiceTest {
                 .assertNext(response -> {
                     assert response.getParameters().isEmpty();
                     assert response.getVersion().equals(currentVersion);
-                    assert !response.isChanged();
+                    assert !response.isRequiresRefresh();
                 })
                 .verifyComplete();
     }
