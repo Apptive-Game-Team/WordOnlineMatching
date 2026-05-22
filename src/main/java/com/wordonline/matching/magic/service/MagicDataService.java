@@ -34,21 +34,27 @@ public class MagicDataService {
 
     @Transactional(readOnly = true)
     public Mono<MagicsResponse> getMagics(String currentVersion) {
-        Flux<MagicCard> magicCardsFlux;
-        String initialVersion = currentVersion;
-
         if (currentVersion == null || currentVersion.isEmpty()) {
-            magicCardsFlux = magicCardRepository.findAll();
-        } else {
-            LocalDateTime timestamp = LocalDateTime.parse(currentVersion, DateTimeFormatter.ISO_DATE_TIME);
-            magicCardsFlux = magicCardRepository.findAllByUpdatedMagicsSince(timestamp);
+            return buildMagicsResponse(magicCardRepository.findAll(), null);
         }
 
+        LocalDateTime timestamp = LocalDateTime.parse(currentVersion, DateTimeFormatter.ISO_DATE_TIME);
+        return magicCardRepository.findAllByUpdatedMagicsSince(timestamp)
+                .collectList()
+                .flatMap(updatedMagicCards -> {
+                    if (updatedMagicCards.isEmpty()) {
+                        return Mono.just(new MagicsResponse(currentVersion, List.of()));
+                    }
+                    return buildMagicsResponse(magicCardRepository.findAll(), null);
+                });
+    }
+
+    private Mono<MagicsResponse> buildMagicsResponse(Flux<MagicCard> magicCardsFlux, String fallbackVersion) {
         return magicCardsFlux
                 .collectList()
                 .flatMap(magicCards -> {
                     if (magicCards.isEmpty()) {
-                        return Mono.just(new MagicsResponse(initialVersion, List.of()));
+                        return Mono.just(new MagicsResponse(fallbackVersion, List.of()));
                     }
 
                     List<Long> magicIds = magicCards.stream()
@@ -98,7 +104,7 @@ public class MagicDataService {
 
                                 String version = (maxUpdatedAt != null)
                                         ? maxUpdatedAt.format(DateTimeFormatter.ISO_DATE_TIME)
-                                        : initialVersion;
+                                        : fallbackVersion;
 
                                 return new MagicsResponse(version, magicDtos);
                             });

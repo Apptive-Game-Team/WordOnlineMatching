@@ -38,19 +38,10 @@ class DataServiceTest {
     private DataService dataService;
 
     @Test
-    @DisplayName("버전_조회시_변경된_게임오브젝트의_전체_파라미터를_반환")
-    void getParameters_WithVersion_ReturnsAllParametersForChangedGameObjects() {
+    @DisplayName("버전_조회시_변경이_있으면_전체_파라미터를_반환")
+    void getParameters_WithVersion_ReturnsAllParametersWhenAnyChangeExists() {
         String currentVersion = "2024-01-01T00:00:00";
-        LocalDateTime oldUpdatedAt = LocalDateTime.parse("2024-01-01T00:00:00");
         LocalDateTime newUpdatedAt = LocalDateTime.parse("2024-01-02T12:00:00");
-
-        ParameterValue unchangedValue = ParameterValue.builder()
-                .id(1L)
-                .gameObjectId(10L)
-                .parameterId(100L)
-                .value(100.0)
-                .updatedAt(oldUpdatedAt)
-                .build();
 
         ParameterValue changedValue = ParameterValue.builder()
                 .id(2L)
@@ -60,10 +51,39 @@ class DataServiceTest {
                 .updatedAt(newUpdatedAt)
                 .build();
 
+        ParameterValue fullPlayerMaxHp = ParameterValue.builder()
+                .id(1L)
+                .gameObjectId(10L)
+                .parameterId(100L)
+                .value(100.0)
+                .updatedAt(LocalDateTime.parse("2024-01-01T00:00:00"))
+                .build();
+
+        ParameterValue fullPlayerAttackPower = ParameterValue.builder()
+                .id(2L)
+                .gameObjectId(10L)
+                .parameterId(101L)
+                .value(10.0)
+                .updatedAt(newUpdatedAt)
+                .build();
+
+        ParameterValue fullEnemyHp = ParameterValue.builder()
+                .id(3L)
+                .gameObjectId(20L)
+                .parameterId(100L)
+                .value(300.0)
+                .updatedAt(LocalDateTime.parse("2024-01-01T08:00:00"))
+                .build();
+
         when(parameterValueRepository.findAllUpdatedSince(any()))
-                .thenReturn(Flux.just(unchangedValue, changedValue));
-        when(gameObjectRepository.findAllById(List.of(10L)))
-                .thenReturn(Flux.just(new GameObject(10L, "player")));
+                .thenReturn(Flux.just(changedValue));
+        when(parameterValueRepository.findAllParameters())
+                .thenReturn(Flux.just(fullPlayerMaxHp, fullPlayerAttackPower, fullEnemyHp));
+        when(gameObjectRepository.findAllById(List.of(10L, 20L)))
+                .thenReturn(Flux.just(
+                        new GameObject(10L, "player"),
+                        new GameObject(20L, "enemy")
+                ));
         when(parameterRepository.findAllById(List.of(100L, 101L)))
                 .thenReturn(Flux.just(
                         new Parameter(100L, "max_hp"),
@@ -72,14 +92,30 @@ class DataServiceTest {
 
         StepVerifier.create(dataService.getParameters(currentVersion))
                 .assertNext(response -> {
-                    assertResponseContainsAllChangedObjectParameters(response);
+                    assertResponseContainsFullParameterSnapshot(response);
                     assert response.getVersion().equals("2024-01-02T12:00:00");
                 })
                 .verifyComplete();
     }
 
-    private void assertResponseContainsAllChangedObjectParameters(ParametersResponse response) {
-        assert response.getParameters().size() == 2;
+    @Test
+    @DisplayName("버전_조회시_변경이_없으면_빈_응답과_기존_버전을_반환")
+    void getParameters_WithVersion_ReturnsEmptyWhenNothingChanged() {
+        String currentVersion = "2024-01-01T00:00:00";
+
+        when(parameterValueRepository.findAllUpdatedSince(any()))
+                .thenReturn(Flux.empty());
+
+        StepVerifier.create(dataService.getParameters(currentVersion))
+                .assertNext(response -> {
+                    assert response.getParameters().isEmpty();
+                    assert response.getVersion().equals(currentVersion);
+                })
+                .verifyComplete();
+    }
+
+    private void assertResponseContainsFullParameterSnapshot(ParametersResponse response) {
+        assert response.getParameters().size() == 3;
         assert response.getParameters().stream().anyMatch(parameter ->
                 parameter.getGameObjectName().equals("player")
                         && parameter.getParamName().equals("max_hp")
@@ -88,5 +124,9 @@ class DataServiceTest {
                 parameter.getGameObjectName().equals("player")
                         && parameter.getParamName().equals("attack_power")
                         && parameter.getValue().equals(10.0));
+        assert response.getParameters().stream().anyMatch(parameter ->
+                parameter.getGameObjectName().equals("enemy")
+                        && parameter.getParamName().equals("max_hp")
+                        && parameter.getValue().equals(300.0));
     }
 }
