@@ -13,9 +13,11 @@ import java.util.List;
 public class ParametersResponse {
     private List<Parameter> parameters;
     private String version;
+    private boolean requiresRefresh;
 
     public ParametersResponse(List<Parameter> parameters) {
         this.parameters = parameters;
         this.version = null; // Will be set in the service
+        this.requiresRefresh = false;
     }
 }
