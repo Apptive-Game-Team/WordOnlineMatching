@@ -94,6 +94,7 @@ class DataServiceTest {
                 .assertNext(response -> {
                     assertResponseContainsFullParameterSnapshot(response);
                     assert response.getVersion().equals("2024-01-02T12:00:00");
+                    assert response.isChanged();
                 })
                 .verifyComplete();
     }
@@ -110,6 +111,7 @@ class DataServiceTest {
                 .assertNext(response -> {
                     assert response.getParameters().isEmpty();
                     assert response.getVersion().equals(currentVersion);
+                    assert !response.isChanged();
                 })
                 .verifyComplete();
     }

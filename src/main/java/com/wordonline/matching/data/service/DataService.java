@@ -32,7 +32,7 @@ public class DataService {
 
     public Mono<ParametersResponse> getParameters(String currentVersion) {
         if (currentVersion == null || currentVersion.isEmpty()) {
-            return buildParametersResponse(parameterValueRepository.findAllParameters(), null);
+            return buildParametersResponse(parameterValueRepository.findAllParameters(), null, false);
         }
 
         LocalDateTime timestamp = LocalDateTime.parse(currentVersion, DateTimeFormatter.ISO_DATE_TIME);
@@ -40,18 +40,22 @@ public class DataService {
                 .collectList()
                 .flatMap(updatedParameterValues -> {
                     if (updatedParameterValues.isEmpty()) {
-                        return Mono.just(new ParametersResponse(List.of(), currentVersion));
+                        return Mono.just(new ParametersResponse(List.of(), currentVersion, false));
                     }
-                    return buildParametersResponse(parameterValueRepository.findAllParameters(), null);
+                    return buildParametersResponse(parameterValueRepository.findAllParameters(), null, true);
                 });
     }
 
-    private Mono<ParametersResponse> buildParametersResponse(Flux<ParameterValue> parameterValuesFlux, String fallbackVersion) {
+    private Mono<ParametersResponse> buildParametersResponse(
+            Flux<ParameterValue> parameterValuesFlux,
+            String fallbackVersion,
+            boolean changed
+    ) {
         return parameterValuesFlux
                 .collectList()
                 .flatMap(parameterValues -> {
                     if (parameterValues.isEmpty()) {
-                        return Mono.just(new ParametersResponse(List.of(), fallbackVersion));
+                        return Mono.just(new ParametersResponse(List.of(), fallbackVersion, changed));
                     }
 
                     List<Long> gameObjectIds = parameterValues.stream()
@@ -90,7 +94,7 @@ public class DataService {
                                 String version = (maxUpdatedAt != null)
                                         ? maxUpdatedAt.format(DateTimeFormatter.ISO_DATE_TIME)
                                         : fallbackVersion;
-                                return new ParametersResponse(domainParameters, version);
+                                return new ParametersResponse(domainParameters, version, changed);
                             });
                 });
     }

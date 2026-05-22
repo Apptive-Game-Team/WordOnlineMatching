@@ -70,6 +70,7 @@ class MagicDataServiceTest {
                 .assertNext(response -> {
                     assertFullMagicSnapshot(response);
                     assert response.version().equals("2024-01-02T12:00:00");
+                    assert response.changed();
                 })
                 .verifyComplete();
     }
@@ -86,6 +87,7 @@ class MagicDataServiceTest {
                 .assertNext(response -> {
                     assert response.magics().isEmpty();
                     assert response.version().equals(currentVersion);
+                    assert !response.changed();
                 })
                 .verifyComplete();
     }
