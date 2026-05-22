@@ -25,7 +25,7 @@ Use package-by-feature organization. Java uses Lombok where already established;
 
 ## Testing Guidelines
 
-Tests use JUnit 5, Spring Boot Test, Spring Security Test, and Reactor Test. Name tests by behavior; existing tests include Korean display-style method names. Add focused tests for controller response shapes, service branching, and repository queries when behavior changes. Run `./gradlew test` before handing off.
+Tests use JUnit 5, Spring Boot Test, Spring Security Test, and Reactor Test. Name tests by behavior; existing tests include Korean display-style method names. Add focused tests for controller response shapes, service branching, and repository queries when behavior changes. Run `./gradlew test` before handoff.
 
 ## Commit & Pull Request Guidelines
 
@@ -34,7 +34,7 @@ Recent history uses short conventional-style prefixes such as `feat:`, `fix:`, a
 Workflow for tracked work in this repo:
 - Create a GitHub issue before implementation when the user asks for end-to-end delivery.
 - Create and work on a dedicated branch per issue.
-- Use branch names in the form `<issue-label>/<issue-num>` such as `feature/123`.
+- Use branch names in the form `<issue-label>/<issue-num>` such as `feature/123` or `fix/39`.
 - After implementation and verification, open a PR linked to the issue.
 
 ## Security & Configuration Tips
