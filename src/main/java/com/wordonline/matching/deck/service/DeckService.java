@@ -138,6 +138,13 @@ public class DeckService {
                 .then();
     }
 
+    public Mono<Void> deleteDeck(long userId, long deckId) {
+        return findDeck(deckId, userId)
+                .flatMap(deck -> userRepository.clearSelectedDeck(userId, deckId)
+                        .then(deckCardRepository.deleteByDeckId(deckId))
+                        .then(deckRepository.delete(deck)));
+    }
+
 
     @Transactional(readOnly = true)
     public Mono<DeckResponseDto> getDeck(long deckId) {
