@@ -48,6 +48,21 @@ public class DeckService {
                 .map(user -> user.getSelectedDeckId() != null);
     }
 
+    @Transactional(readOnly = true)
+    public Mono<Boolean> hasValidSelectedDeck(long userId) {
+        return userRepository.findById(userId)
+                .flatMap(user -> {
+                    if (user.getSelectedDeckId() == null) {
+                        return Mono.just(false);
+                    }
+                    return deckCardRepository.findAllByDeckId(user.getSelectedDeckId())
+                            .flatMap(deckCard -> Flux.range(0, deckCard.getCount()).map(i -> deckCard.getCardId()))
+                            .collectList()
+                            .flatMap(deckValidator::isValid);
+                })
+                .defaultIfEmpty(false);
+    }
+
     @Transactional
     public Flux<DeckResponseDto> getDecks(long userId){
         return deckRepository.findAllByUserId(userId)

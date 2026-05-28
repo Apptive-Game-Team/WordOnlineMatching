@@ -53,26 +53,32 @@ class GameMatchService(
     }
 
     private suspend fun enqueue(userId: Long): Boolean {
-        if (matchingQueueRepository.isInQueue(userId).awaitSingle()) {
-            val mmr = userService.getMmr(userId).awaitSingle()
-            matchingQueueRepository.enqueue(userId, mmr).awaitSingleOrNull()
-            log.info("Matching queue entry refreshed: userId={}, mmr={}", userId, mmr)
-            return true
-        }
-
         return try {
+            if (matchingQueueRepository.isInQueue(userId).awaitSingle()) {
+                validateSelectedDeck(userId)
+                val mmr = userService.getMmr(userId).awaitSingle()
+                matchingQueueRepository.enqueue(userId, mmr).awaitSingleOrNull()
+                log.info("Matching queue entry refreshed: userId={}, mmr={}", userId, mmr)
+                return true
+            }
+
             userService.markMatching(userId).awaitSingleOrNull()
-            val hasDeck = deckService.hasSelectedDeck(userId).awaitSingle()
-            if (!hasDeck) throw IllegalStateException("Deck has not been selected")
+            validateSelectedDeck(userId)
             val mmr = userService.getMmr(userId).awaitSingle()
             matchingQueueRepository.enqueue(userId, mmr).awaitSingleOrNull()
             log.info("User enqueued for matching: userId={}, mmr={}", userId, mmr)
             true
         } catch (e: Exception) {
             log.warn("Failed to enqueue user for matching: userId={}", userId, e)
+            matchingQueueRepository.remove(userId).awaitSingleOrNull()
             userService.markOnline(userId).awaitSingleOrNull()
             false
         }
+    }
+
+    private suspend fun validateSelectedDeck(userId: Long) {
+        val hasValidDeck = deckService.hasValidSelectedDeck(userId).awaitSingle()
+        if (!hasValidDeck) throw IllegalStateException("Deck is invalid or has not been selected")
     }
 
     suspend fun removeFromQueue(userId: Long) {
