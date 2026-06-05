@@ -8,15 +8,18 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
+import com.wordonline.matching.auth.service.UserIdResolver;
 
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.when;
 
 @WebFluxTest(CardController.class)
+@Import(UserIdResolver.class)
 class CardControllerTest {
 
     @Autowired
@@ -41,7 +44,7 @@ class CardControllerTest {
         when(questService.findQuestProgressByCard(userId, cardId)).thenReturn(Mono.just(mockResponse));
 
         webTestClient
-                .mutateWith(SecurityMockServerConfigurers.mockJwt().jwt(jwt -> jwt.claim("memberId", String.valueOf(userId))))
+                .mutateWith(SecurityMockServerConfigurers.mockJwt().jwt(jwt -> jwt.claim("memberId", userId)))
                 .get()
                 .uri("/api/cards/{cardId}/quest-progress", cardId)
                 .exchange()

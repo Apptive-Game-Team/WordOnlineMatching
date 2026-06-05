@@ -20,6 +20,13 @@ WHERE id = :userId;
 
     @Query("""
 UPDATE users
+SET selected_deck_id = NULL
+WHERE id = :userId AND selected_deck_id = :deckId;
+""")
+    Mono<Long> clearSelectedDeck(@Param("userId") Long userId, @Param("deckId") Long deckId);
+
+    @Query("""
+UPDATE users
 SET status = CAST(:status AS user_status)
 WHERE id = :userId;
 """)
