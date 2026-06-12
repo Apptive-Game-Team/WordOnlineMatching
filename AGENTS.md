@@ -8,7 +8,8 @@ Related repositories:
 - `Apptive-Game-Team/WordOnlineServer`: actual game session server.
 - `Apptive-Game-Team/WordOnlineClient`: Unity client consuming these APIs.
 - `Apptive-Game-Team/AccountServer`: account/member service used by `AccountClient`.
-- `Apptive-Game-Team/WordOnlineDatabase`: database migration source of truth.
+- `Apptive-Game-Team/WordOnlineDatabase`: database migration and operational
+  SQL source of truth.
 
 ## Build, Test, and Development Commands
 
@@ -17,7 +18,7 @@ Related repositories:
 - `./gradlew bootRun`: run the Spring Boot app locally.
 - `./gradlew bootJar`: create the deployable Spring Boot jar.
 
-Local runs require environment variables from `application.yml`: `PORT`, `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`, `REDIS_HOST`, `REDIS_PORT`, `ACCOUNT_SERVER_URL`, `JWT_PRIVATE_KEY`, and `JWT_PUBLIC_KEY`. For schema questions, inspect `../database/migration` first; do not rely on this repo's `src/main/resources/schema.sql` as authoritative.
+Local runs require environment variables from `application.yml`: `PORT`, `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`, `REDIS_HOST`, `REDIS_PORT`, `ACCOUNT_SERVER_URL`, `JWT_PRIVATE_KEY`, and `JWT_PUBLIC_KEY`. For schema questions, inspect `../database/migration`.
 
 ## Coding Style & Naming Conventions
 
@@ -39,4 +40,8 @@ Workflow for tracked work in this repo:
 
 ## Security & Configuration Tips
 
-Do not commit secrets or local `.env` values. JWT keys, database credentials, Redis settings, and account server URLs must remain environment-driven. Database schema changes belong in `WordOnlineDatabase`; treat lobby-server `schema.sql` as stale/local reference material unless verified against the database repo.
+Do not commit secrets or local `.env` values. JWT keys, database credentials,
+Redis settings, and account server URLs must remain environment-driven.
+Database schema, seed, and operational data changes belong in
+`WordOnlineDatabase`. Do not add production SQL to this repository's runtime
+resources. Test-only fixtures may remain with their tests.
