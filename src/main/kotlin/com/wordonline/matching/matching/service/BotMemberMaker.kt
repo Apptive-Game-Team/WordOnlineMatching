@@ -22,7 +22,7 @@ class BotMemberMaker(
                 if (!persona.enabled) {
                     Mono.error(IllegalStateException("Bot persona is disabled: userId=$botId"))
                 } else {
-                    Mono.just(AccountMemberResponseDto("bot@team6515.com", persona.name))
+                    Mono.just(AccountMemberResponseDto("bot@theevilent.com", persona.name))
                 }
             }
     }
