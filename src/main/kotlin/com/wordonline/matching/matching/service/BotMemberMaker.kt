@@ -1,23 +1,29 @@
 package com.wordonline.matching.matching.service
 
 import com.wordonline.matching.matching.dto.AccountMemberResponseDto
-import org.springframework.stereotype.Component
-import kotlin.random.Random
+import com.wordonline.matching.matching.repository.BotPersonaRepository
+import org.springframework.stereotype.Service
+import reactor.core.publisher.Mono
 
-@Component
-class BotMemberMaker {
+@Service
+class BotMemberMaker(
+    private val botPersonaRepository: BotPersonaRepository,
+) {
 
-    val randomBotMemberId: Long
-        get() = -1L * (Random.nextInt(2) + 1)
+    fun getRandomEnabledBotId(): Mono<Long> = botPersonaRepository.findRandomEnabledUserId()
+        .switchIfEmpty(Mono.error(IllegalStateException("No enabled bot persona is available.")))
 
-    suspend fun getBot(botId: Long): AccountMemberResponseDto {
-        val name = when (botId.toInt()) {
-            -1 -> "master of everything"
-            -2 -> "master of lightning water"
-            -3 -> "master of fire rock"
-            -4 -> "master of water nature"
-            else -> "bot"
-        }
-        return AccountMemberResponseDto("bot@team6515.com", name)
+    fun getBot(botId: Long): Mono<AccountMemberResponseDto> {
+        require(botId < 0) { "Bot user ID must be negative." }
+
+        return botPersonaRepository.findByUserId(botId)
+            .switchIfEmpty(Mono.error(IllegalArgumentException("Bot persona not found: userId=$botId")))
+            .flatMap { persona ->
+                if (!persona.enabled) {
+                    Mono.error(IllegalStateException("Bot persona is disabled: userId=$botId"))
+                } else {
+                    Mono.just(AccountMemberResponseDto("bot@team6515.com", persona.name))
+                }
+            }
     }
 }

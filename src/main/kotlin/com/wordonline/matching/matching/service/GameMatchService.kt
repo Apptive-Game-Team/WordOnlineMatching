@@ -34,7 +34,8 @@ class GameMatchService(
 
     suspend fun matchPractice(userId: Long): MatchedInfoDto {
         val sessionId = "bot-${matchingQueueRepository.nextSessionId().awaitSingle()}"
-        val sessionDto = SessionDto.Practice(sessionId, userId, botMemberMaker.randomBotMemberId)
+        val botId = botMemberMaker.getRandomEnabledBotId().awaitSingle()
+        val sessionDto = SessionDto.Practice(sessionId, userId, botId)
         return legacyGameMatchService.createSession(sessionDto).awaitSingle()
     }
 
