@@ -4,7 +4,6 @@ import com.wordonline.matching.global.service.LocalizationService
 import com.wordonline.matching.matching.dto.AccountMemberResponseDto
 import com.wordonline.matching.matching.service.BotMemberMaker
 import kotlinx.coroutines.reactor.awaitSingle
-import kotlinx.coroutines.reactor.mono
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.i18n.LocaleContext
@@ -25,7 +24,7 @@ class AccountClient(
     private val webClient = builder.baseUrl(accountServerUrl).build()
 
     fun getMember(memberId: Long): Mono<AccountMemberResponseDto> {
-        if (memberId <= 0) return mono { botMemberMaker.getBot(memberId) }
+        if (memberId < 0) return botMemberMaker.getBot(memberId)
 
         return webClient.get().uri("/api/members/$memberId")
             .retrieve()
