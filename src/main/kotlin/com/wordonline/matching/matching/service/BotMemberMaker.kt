@@ -1,6 +1,7 @@
 package com.wordonline.matching.matching.service
 
 import com.wordonline.matching.matching.dto.AccountMemberResponseDto
+import com.wordonline.matching.matching.domain.BotPersona
 import com.wordonline.matching.matching.repository.BotPersonaRepository
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
@@ -10,7 +11,8 @@ class BotMemberMaker(
     private val botPersonaRepository: BotPersonaRepository,
 ) {
 
-    fun getRandomEnabledBotId(): Mono<Long> = botPersonaRepository.findRandomEnabledUserId()
+    fun getRandomEnabledBotId(): Mono<Long> = botPersonaRepository.findRandomEnabled()
+        .map(BotPersona::userId)
         .switchIfEmpty(Mono.error(IllegalStateException("No enabled bot persona is available.")))
 
     fun getBot(botId: Long): Mono<AccountMemberResponseDto> {

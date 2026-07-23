@@ -58,7 +58,8 @@ class BotMemberMakerTest {
 
     @Test
     void selectsBotFromEnabledPersonaCatalog() {
-        when(botPersonaRepository.findRandomEnabledUserId()).thenReturn(Mono.just(-12L));
+        when(botPersonaRepository.findRandomEnabled())
+                .thenReturn(Mono.just(new BotPersona(-12L, "random bot", true)));
 
         StepVerifier.create(botMemberMaker.getRandomEnabledBotId())
                 .expectNext(-12L)
@@ -67,7 +68,7 @@ class BotMemberMakerTest {
 
     @Test
     void rejectsSelectionWhenNoPersonaIsEnabled() {
-        when(botPersonaRepository.findRandomEnabledUserId()).thenReturn(Mono.empty());
+        when(botPersonaRepository.findRandomEnabled()).thenReturn(Mono.empty());
 
         StepVerifier.create(botMemberMaker.getRandomEnabledBotId())
                 .expectErrorMatches(error -> error instanceof IllegalStateException
