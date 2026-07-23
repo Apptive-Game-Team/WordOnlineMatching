@@ -10,12 +10,12 @@ interface BotPersonaRepository : R2dbcRepository<BotPersona, Long> {
 
     @Query(
         """
-        SELECT user_id
+        SELECT user_id, name, enabled
         FROM bot_personas
         WHERE enabled = TRUE
         ORDER BY RANDOM()
         LIMIT 1
         """
     )
-    fun findRandomEnabledUserId(): Mono<Long>
+    fun findRandomEnabled(): Mono<BotPersona>
 }
