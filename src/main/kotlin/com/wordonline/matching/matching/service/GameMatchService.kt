@@ -45,12 +45,6 @@ class GameMatchService(
         return legacyGameMatchService.createSession(sessionDto).awaitSingle()
     }
 
-    suspend fun matchBots(leftBotId: Long, rightBotId: Long): MatchedInfoDto {
-        val sessionId = "admin-bot-${matchingQueueRepository.nextSessionId().awaitSingle()}"
-        val sessionDto = SessionDto.Practice(sessionId, leftBotId, rightBotId)
-        return legacyGameMatchService.createSession(sessionDto).awaitSingle()
-    }
-
     suspend fun matchPVE(userId: Long, scenarioId: Long): MatchedInfoDto {
         val sessionId = "pve-${matchingQueueRepository.nextSessionId().awaitSingle()}"
         val sessionDto = SessionDto.PVE(sessionId, userId, scenarioId)
