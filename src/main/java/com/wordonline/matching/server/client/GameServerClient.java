@@ -40,8 +40,8 @@ public class GameServerClient {
                 .uri("/healthcheck")
                 .retrieve()
                 .toBodilessEntity()
+                .timeout(Duration.ofSeconds(2))
                 .map(responseEntity -> responseEntity.getStatusCode().is2xxSuccessful())
-                .onErrorReturn(false)
-                .timeout(Duration.ofSeconds(2));
+                .onErrorReturn(false);
     }
 }

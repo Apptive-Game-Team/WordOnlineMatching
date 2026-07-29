@@ -62,7 +62,11 @@ public class GameServerManagementService {
     private Mono<Void> healthCheck() {
         return Flux.fromIterable(gameServers)
                 .flatMap(server ->
-                    gameServerClient.healthcheck(server.getUrl())
+                    Mono.defer(() -> gameServerClient.healthcheck(server.getUrl()))
+                            .onErrorResume(error -> {
+                                log.error("[Error] while healthcheck game server {}", server.getId(), error);
+                                return Mono.just(false);
+                            })
                             .map(server::updateState)
                 )
                 .then();
