@@ -58,7 +58,7 @@ public class DeckService {
                     return deckCardRepository.findAllByDeckId(user.getSelectedDeckId())
                             .flatMap(deckCard -> Flux.range(0, deckCard.getCount()).map(i -> deckCard.getCardId()))
                             .collectList()
-                            .flatMap(deckValidator::isValid);
+                            .flatMap(cardIds -> deckValidator.isValid(userId, cardIds));
                 })
                 .defaultIfEmpty(false);
     }
@@ -83,7 +83,7 @@ public class DeckService {
 
     public Mono<DeckResponseDto> saveDeck(long userId, DeckRequestDto deckRequestDto) {
         Deck deck = new Deck(userId, deckRequestDto.name());
-        return deckValidator.isValid(deckRequestDto.cardIds())
+        return deckValidator.isValid(userId, deckRequestDto.cardIds())
                 .flatMap(isValid -> {
                     if (!isValid) {
                         return Mono.error(new IllegalArgumentException("Invalid deck"));
@@ -96,7 +96,7 @@ public class DeckService {
     }
 
     public Mono<DeckResponseDto> updateDeck(long userId, long deckId, DeckRequestDto deckRequestDto) {
-        return deckValidator.isValid(deckRequestDto.cardIds())
+        return deckValidator.isValid(userId, deckRequestDto.cardIds())
                 .flatMap(isValid -> {
                     if (!isValid) {
                         return Mono.error(new IllegalArgumentException("Invalid deck"));
