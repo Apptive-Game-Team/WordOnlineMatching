@@ -2,6 +2,7 @@ package com.wordonline.matching.matching.repository
 
 import org.springframework.data.domain.Range
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
+import org.springframework.data.redis.core.script.RedisScript
 import org.springframework.stereotype.Repository
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -15,6 +16,20 @@ class MatchingQueueRepository(
         private const val MMR_KEY = "matching:mmr"
         private const val COUNTER_KEY = "matching:session-counter"
           private const val TIMEOUT_MS = 5 * 60 * 1000L
+
+        // Claims both queue slots atomically: only removes them when both are still queued,
+        // so two overlapping matching ticks can never hand out the same pair.
+        private val CLAIM_PAIR_SCRIPT: RedisScript<Long> = RedisScript.of(
+            """
+            if redis.call('ZSCORE', KEYS[1], ARGV[1]) and redis.call('ZSCORE', KEYS[1], ARGV[2]) then
+                redis.call('ZREM', KEYS[1], ARGV[1], ARGV[2])
+                redis.call('HDEL', KEYS[2], ARGV[1], ARGV[2])
+                return 1
+            end
+            return 0
+            """.trimIndent(),
+            Long::class.javaObjectType,
+        )
     }
 
     fun enqueue(userId: Long, mmr: Long): Mono<Void> =
@@ -42,10 +57,13 @@ class MatchingQueueRepository(
 
                         val (uid1, uid2) = findClosestPair(candidates)
 
-                        Mono.`when`(
-                            redisTemplate.opsForZSet().remove(QUEUE_KEY, uid1.toString(), uid2.toString()),
-                            redisTemplate.opsForHash<String, String>().remove(MMR_KEY, uid1.toString(), uid2.toString()),
-                        ).thenReturn(listOf(uid1, uid2))
+                        redisTemplate.execute(
+                            CLAIM_PAIR_SCRIPT,
+                            listOf(QUEUE_KEY, MMR_KEY),
+                            listOf(uid1.toString(), uid2.toString()),
+                        ).next()
+                            .map { claimed -> if (claimed == 1L) listOf(uid1, uid2) else emptyList() }
+                            .defaultIfEmpty(emptyList())
                     }
             }
 
@@ -69,8 +87,10 @@ class MatchingQueueRepository(
             .collectList()
             .flatMapMany { expiredIds ->
                 if (expiredIds.isEmpty()) return@flatMapMany Flux.empty()
+                val mmrFields = expiredIds.map { it.toString() as Any }.toTypedArray()
                 redisTemplate.opsForZSet()
                     .removeRangeByScore(QUEUE_KEY, range)
+                    .then(redisTemplate.opsForHash<String, String>().remove(MMR_KEY, *mmrFields))
                     .thenMany(Flux.fromIterable(expiredIds))
             }
     }
