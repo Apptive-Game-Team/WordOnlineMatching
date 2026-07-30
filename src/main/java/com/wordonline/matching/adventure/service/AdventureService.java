@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
+import com.wordonline.matching.adventure.domain.ContentState;
 import com.wordonline.matching.adventure.dto.AdventureDto;
 import com.wordonline.matching.adventure.dto.AdventuresResponse;
 import com.wordonline.matching.adventure.dto.ScenarioDto;
@@ -24,8 +25,16 @@ import reactor.core.publisher.Mono;
 public class AdventureService {
 
     private final UserAdventureRepository userAdventureRepository;
+    private final UserScenarioRepository userScenarioRepository;
     private final AdventureInitService adventureInitService;
     private final AdventureProgressService adventureProgressService;
+
+    public Mono<Boolean> isScenarioUnlocked(long userId, long scenarioId) {
+        return updateUserAdventures(userId)
+                .then(userScenarioRepository.findByUserIdAndScenarioId(userId, scenarioId))
+                .map(userScenario -> userScenario.getState() != ContentState.INACTIVE)
+                .defaultIfEmpty(false);
+    }
 
     public Mono<AdventuresResponse> getAdventures(Long userId) {
         return userAdventureRepository.findAllAdventureProgress(userId)

@@ -49,10 +49,13 @@ class MatchingQueueRepository(
                     }
             }
 
-    fun remove(userId: Long): Mono<Void> =
+    /** Returns how many queue entries were actually removed (0 when the user was not queued). */
+    fun remove(userId: Long): Mono<Long> =
         redisTemplate.opsForZSet().remove(QUEUE_KEY, userId.toString() as Any)
-            .then(redisTemplate.opsForHash<String, String>().remove(MMR_KEY, userId.toString() as Any))
-            .then()
+            .flatMap { removed ->
+                redisTemplate.opsForHash<String, String>().remove(MMR_KEY, userId.toString() as Any)
+                    .thenReturn(removed)
+            }
 
     fun size(): Mono<Long> =
         redisTemplate.opsForZSet().size(QUEUE_KEY)

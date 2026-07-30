@@ -1,5 +1,7 @@
 package com.wordonline.matching.matching.service
 
+import com.wordonline.matching.adventure.service.AdventureService
+import com.wordonline.matching.auth.domain.UserStatus
 import com.wordonline.matching.auth.service.UserService
 import com.wordonline.matching.deck.service.DeckService
 import com.wordonline.matching.matching.dto.MatchedInfoDto
@@ -24,8 +26,15 @@ class GameMatchService(
     private val legacyGameMatchService: LegacyGameMatchService,
     private val userService: UserService,
     private val deckService: DeckService,
-    private val matchingQueueRepository: MatchingQueueRepository
+    private val matchingQueueRepository: MatchingQueueRepository,
+    private val adventureService: AdventureService
 ) {
+    companion object {
+        // ponytail: fixed per-tick cap keeps one slow tick from running forever;
+        // raise it or make matching event-driven if the queue still backs up.
+        private const val MAX_PAIRS_PER_TICK = 20
+    }
+
     private val log = LoggerFactory.getLogger(javaClass)
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
         log.error("Unexpected error while trying to match users", throwable)
@@ -33,6 +42,7 @@ class GameMatchService(
     private val scope = CoroutineScope(Dispatchers.Default + exceptionHandler)
 
     suspend fun matchPractice(userId: Long): MatchedInfoDto {
+        validateCanStartSoloSession(userId)
         val sessionId = "bot-${matchingQueueRepository.nextSessionId().awaitSingle()}"
         val botId = botMemberMaker.getRandomEnabledBotId().awaitSingle()
         val sessionDto = SessionDto.Practice(sessionId, userId, botId)
@@ -46,6 +56,10 @@ class GameMatchService(
     }
 
     suspend fun matchPVE(userId: Long, scenarioId: Long): MatchedInfoDto {
+        validateCanStartSoloSession(userId)
+        if (!adventureService.isScenarioUnlocked(userId, scenarioId).awaitSingle()) {
+            throw IllegalArgumentException("Scenario is not unlocked: scenarioId=$scenarioId")
+        }
         val sessionId = "pve-${matchingQueueRepository.nextSessionId().awaitSingle()}"
         val sessionDto = SessionDto.PVE(sessionId, userId, scenarioId)
         return legacyGameMatchService.createSession(sessionDto).awaitSingle()
@@ -88,9 +102,21 @@ class GameMatchService(
         if (!hasValidDeck) throw IllegalStateException("Deck is invalid or has not been selected")
     }
 
-    suspend fun removeFromQueue(userId: Long) {
-        matchingQueueRepository.remove(userId).awaitSingleOrNull()
-        userService.markOnline(userId).awaitSingleOrNull()
+    private suspend fun validateCanStartSoloSession(userId: Long) {
+        validateSelectedDeck(userId)
+        val status = userService.getStatus(userId).awaitSingleOrNull()
+        if (status == UserStatus.OnMatching || status == UserStatus.OnPlaying) {
+            throw IllegalArgumentException("User is already matching or playing: userId=$userId")
+        }
+    }
+
+    /** Returns false when the user was not queued anymore, e.g. already picked up by matching. */
+    suspend fun removeFromQueue(userId: Long): Boolean {
+        val removed = (matchingQueueRepository.remove(userId).awaitSingleOrNull() ?: 0L) > 0
+        if (removed) {
+            userService.markOnline(userId).awaitSingleOrNull()
+        }
+        return removed
     }
 
     @Scheduled(fixedRate = 5000)
@@ -103,27 +129,30 @@ class GameMatchService(
                 }
             }
 
-            val pair = matchingQueueRepository.dequeueBestPair().awaitSingle()
-            if (pair.size < 2) return@launch
-
-            val uid1 = pair[0]
-            val uid2 = pair[1]
-            val sessionId = "session-${matchingQueueRepository.nextSessionId().awaitSingle()}"
-            val sessionDto = SessionDto.from(sessionId, uid1, uid2)
-
-            try {
-                legacyGameMatchService.createSession(sessionDto).awaitSingle()
-                log.info("Users matched: uid1={}, uid2={}, sessionId={}", uid1, uid2, sessionId)
-                userService.markPlaying(uid1).awaitSingleOrNull()
-                userService.markPlaying(uid2).awaitSingleOrNull()
-            } catch (e: Exception) {
-                log.error("Failed to create matched session: uid1={}, uid2={}, sessionId={}", uid1, uid2, sessionId, e)
-                userService.markOnline(uid1).awaitSingleOrNull()
-                userService.markOnline(uid2).awaitSingleOrNull()
-            } finally {
-                matchingQueueRepository.remove(uid1).awaitSingleOrNull()
-                matchingQueueRepository.remove(uid2).awaitSingleOrNull()
+            repeat(MAX_PAIRS_PER_TICK) {
+                val pair = matchingQueueRepository.dequeueBestPair().awaitSingle()
+                if (pair.size < 2) return@launch
+                createMatchedSession(pair[0], pair[1])
             }
+        }
+    }
+
+    private suspend fun createMatchedSession(uid1: Long, uid2: Long) {
+        val sessionId = "session-${matchingQueueRepository.nextSessionId().awaitSingle()}"
+        val sessionDto = SessionDto.from(sessionId, uid1, uid2)
+
+        try {
+            legacyGameMatchService.createSession(sessionDto).awaitSingle()
+            log.info("Users matched: uid1={}, uid2={}, sessionId={}", uid1, uid2, sessionId)
+            userService.markPlaying(uid1).awaitSingleOrNull()
+            userService.markPlaying(uid2).awaitSingleOrNull()
+        } catch (e: Exception) {
+            log.error("Failed to create matched session: uid1={}, uid2={}, sessionId={}", uid1, uid2, sessionId, e)
+            userService.markOnline(uid1).awaitSingleOrNull()
+            userService.markOnline(uid2).awaitSingleOrNull()
+        } finally {
+            matchingQueueRepository.remove(uid1).awaitSingleOrNull()
+            matchingQueueRepository.remove(uid2).awaitSingleOrNull()
         }
     }
 

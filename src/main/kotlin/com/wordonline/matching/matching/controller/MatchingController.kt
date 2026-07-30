@@ -5,6 +5,7 @@ import com.wordonline.matching.matching.dto.MatchedInfoDto
 import com.wordonline.matching.matching.dto.QueueLengthResponseDto
 import com.wordonline.matching.matching.dto.SimpleMessageDto
 import com.wordonline.matching.matching.service.GameMatchService
+import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -35,8 +36,11 @@ class MatchingController(
 
     @DeleteMapping("/api/match/queue/me")
     suspend fun removeFromQueue(@UserId userId: Long?): ResponseEntity<Unit> {
-        gameMatchService.removeFromQueue(userId!!)
-        return ResponseEntity.ok().build()
+        return if (gameMatchService.removeFromQueue(userId!!)) {
+            ResponseEntity.ok().build()
+        } else {
+            ResponseEntity.status(HttpStatus.CONFLICT).build()
+        }
     }
 
     @GetMapping("/api/match/length")
