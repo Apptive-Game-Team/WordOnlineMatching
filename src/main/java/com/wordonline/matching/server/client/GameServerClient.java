@@ -27,6 +27,7 @@ public class GameServerClient {
                 .uri("/api/server/game-sessions")
                 .retrieve()
                 .bodyToMono(RoomListDto.class)
+                .timeout(Duration.ofSeconds(3))
                 .onErrorResume(error -> {
                     log.error("Failed to fetch game sessions from server: {}", serverUrl, error);
                     return Mono.just(new RoomListDto(java.util.List.of()));
