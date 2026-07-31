@@ -1,16 +1,19 @@
 package com.wordonline.matching.server.client;
 
-import com.wordonline.matching.server.dto.RoomListDto;
+import java.time.Duration;
+import java.util.List;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.reactive.function.client.WebClient;
+
+import com.wordonline.matching.server.dto.RoomListDto;
+
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
-
-import java.time.Duration;
 
 import static org.mockito.Mockito.when;
 
@@ -46,7 +49,22 @@ class GameServerClientTest {
 
         StepVerifier.withVirtualTime(() -> gameServerClient.getGameSessions("http://game"))
                 .thenAwait(Duration.ofSeconds(5))
-                .expectNext(new RoomListDto(java.util.List.of()))
+                .expectNext(new RoomListDto(List.of()))
+                .verifyComplete();
+    }
+
+    @Test
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    void 응답이_없는_서버는_타임아웃되면_false를_반환한다() {
+        WebClient.RequestHeadersUriSpec rawRequest = request;
+        when(webClient.get()).thenReturn(rawRequest);
+        when(rawRequest.uri("/healthcheck")).thenReturn(rawRequest);
+        when(rawRequest.retrieve()).thenReturn(response);
+        when(response.toBodilessEntity()).thenReturn(Mono.never());
+
+        StepVerifier.withVirtualTime(() -> gameServerClient.healthcheck("http://game"))
+                .thenAwait(Duration.ofSeconds(3))
+                .expectNext(false)
                 .verifyComplete();
     }
 }
