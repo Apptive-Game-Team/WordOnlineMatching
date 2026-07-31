@@ -1,7 +1,6 @@
 package com.wordonline.matching.matching.dto
 
 import com.wordonline.matching.auth.dto.UserDetailResponseDto
-import com.wordonline.matching.session.domain.SessionRecoveryInfo
 
 data class MatchedInfoDto @JvmOverloads constructor(
     val message: String,
@@ -10,16 +9,4 @@ data class MatchedInfoDto @JvmOverloads constructor(
     val rightUser: UserDetailResponseDto,
     val sessionId: String,
     val type: String = "matchedInfoDto",
-) {
-    constructor(
-        sessionInfo: SessionRecoveryInfo,
-        leftUser: UserDetailResponseDto,
-        rightUser: UserDetailResponseDto,
-    ) : this(
-        message = "Successfully Match Info Recovered",
-        server = sessionInfo.serverUrl(),
-        leftUser = leftUser,
-        rightUser = rightUser,
-        sessionId = sessionInfo.sessionId(),
-    )
-}
+)

@@ -23,6 +23,20 @@ spring:
 #    org.springframework:
 #      DEBUG
 
+matching:
+  tick-interval-ms: ${MATCHING_TICK_INTERVAL_MS:1000}
+  reconcile-interval-ms: ${MATCHING_RECONCILE_INTERVAL_MS:10000}
+  batch-size: ${MATCHING_BATCH_SIZE:400}
+  base-mmr-diff: ${MATCHING_BASE_MMR_DIFF:100}
+  widen-per-sec: ${MATCHING_WIDEN_PER_SEC:20}
+  max-wait-seconds: ${MATCHING_MAX_WAIT_SECONDS:60}
+  queue-timeout-seconds: ${MATCHING_QUEUE_TIMEOUT_SECONDS:300}
+  max-retry: ${MATCHING_MAX_RETRY:3}
+  stuck-matched-seconds: ${MATCHING_STUCK_MATCHED_SECONDS:30}
+  reconcile-grace-seconds: ${MATCHING_RECONCILE_GRACE_SECONDS:30}
+  max-status-wait-seconds: ${MATCHING_MAX_STATUS_WAIT_SECONDS:30}
+  status-recheck-millis: ${MATCHING_STATUS_RECHECK_MILLIS:2000}
+
 team6515:
   server:
     account:

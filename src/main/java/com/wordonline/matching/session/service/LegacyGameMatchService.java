@@ -9,19 +9,20 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import com.wordonline.matching.auth.dto.UserDetailResponseDto;
 import com.wordonline.matching.auth.service.UserService;
+import com.wordonline.matching.matching.domain.MatchTicket;
+import com.wordonline.matching.matching.domain.MatchTicketState;
 import com.wordonline.matching.matching.dto.MatchedInfoDto;
 import com.wordonline.matching.matching.dto.SessionDto;
+import com.wordonline.matching.matching.repository.MatchTicketRepository;
 import com.wordonline.matching.server.entity.Server;
 import com.wordonline.matching.server.service.GameServerManagementService;
 import com.wordonline.matching.global.service.LocalizationService;
-import com.wordonline.matching.session.domain.SessionRecoveryInfo;
 import com.wordonline.matching.session.dto.SimpleBooleanDto;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
-import reactor.util.function.Tuples;
 
 @Slf4j
 @Service
@@ -29,7 +30,7 @@ import reactor.util.function.Tuples;
 public class LegacyGameMatchService {
 
     private final WebClient.Builder webClientBuilder;
-    private final SessionRecoveryStore sessionRecoveryStore;
+    private final MatchTicketRepository matchTicketRepository;
     private final LocalizationService localizationService;
     private final UserService userService;
     private final GameServerManagementService gameServerManagementService;
@@ -48,32 +49,61 @@ public class LegacyGameMatchService {
                                 .flatMap(isSuccess -> {
                                     if (!isSuccess) return getException();
                                     log.info("Session Created");
+                                    String serverUrl = optionalServer.get().getUrl();
                                     MatchedInfoDto matchedInfoDto = new MatchedInfoDto(
                                             "Successfully Matched",
-                                            optionalServer.get().getUrl(),
+                                            serverUrl,
                                             tuple.getT1(),
                                             tuple.getT2(),
                                             sessionDto.getSessionId()
                                     );
-                                    return sessionRecoveryStore.storeMatchInfo(matchedInfoDto)
+                                    return storeTickets(sessionDto, serverUrl)
                                             .thenReturn(matchedInfoDto);
                                 })));
     }
 
-    public Mono<MatchedInfoDto> getMatchInfo(long userId) {
-        return sessionRecoveryStore.getSessionInfo(userId)
-                .switchIfEmpty(Mono.error(new IllegalArgumentException("Session Not Found")))
-                .flatMap(sessionRecoveryInfo ->
-                        checkSessionActive(sessionRecoveryInfo.serverUrl(), sessionRecoveryInfo.sessionId())
-                                .flatMap(isActive -> {
-                                    if (isActive) return mapToMatchedInfo(sessionRecoveryInfo);
-                                    return Mono.error(new IllegalArgumentException("Session Already Deactivated"));
-                                }));
+    /**
+     * The ticket doubles as the session recovery record, so practice and PVE sessions get
+     * reconnect support the same way queued matches do.
+     */
+    private Mono<Void> storeTickets(SessionDto sessionDto, String serverUrl) {
+        return Mono.when(
+                storeTicket(sessionDto.getUid1(), sessionDto, serverUrl),
+                storeTicket(sessionDto.getUid2(), sessionDto, serverUrl)
+        );
     }
 
-    private Mono<MatchedInfoDto> mapToMatchedInfo(SessionRecoveryInfo sessionRecoveryInfo) {
-        return getUserDetails(sessionRecoveryInfo.leftUserId(), sessionRecoveryInfo.rightUserId())
-                .map(tuple -> new MatchedInfoDto(sessionRecoveryInfo, tuple.getT1(), tuple.getT2()));
+    private Mono<Void> storeTicket(Long userId, SessionDto sessionDto, String serverUrl) {
+        if (userId == null || userId < 0) return Mono.empty();
+
+        Long rightUserId = sessionDto.getUid2();
+        if (rightUserId == null) {
+            return matchTicketRepository.markPlayingSolo(
+                    userId, sessionDto.getSessionId(), serverUrl, sessionDto.getUid1()).then();
+        }
+        return matchTicketRepository.markPlaying(
+                userId, sessionDto.getSessionId(), serverUrl, sessionDto.getUid1(), rightUserId).then();
+    }
+
+    public Mono<MatchedInfoDto> getMatchInfo(long userId) {
+        return matchTicketRepository.findById(userId)
+                .switchIfEmpty(Mono.error(new IllegalArgumentException("Session Not Found")))
+                .flatMap(this::mapToMatchedInfo);
+    }
+
+    private Mono<MatchedInfoDto> mapToMatchedInfo(MatchTicket ticket) {
+        if (ticket.getState() != MatchTicketState.PLAYING || ticket.getSessionId() == null) {
+            return Mono.error(new IllegalArgumentException("Session Not Found"));
+        }
+
+        return getUserDetails(ticket.getLeftUserId(), ticket.getRightUserId())
+                .map(tuple -> new MatchedInfoDto(
+                        "Successfully Match Info Recovered",
+                        ticket.getServerUrl(),
+                        tuple.getT1(),
+                        tuple.getT2(),
+                        ticket.getSessionId()
+                ));
     }
 
     private Mono<Tuple2<UserDetailResponseDto, UserDetailResponseDto>> getUserDetails(long userId1, Long userId2) {
@@ -82,14 +112,6 @@ public class LegacyGameMatchService {
                 userId2 != null ? userService.getUserDetail(userId2)
                         : Mono.just(new UserDetailResponseDto(0L, "dummy", "dummy@team6515.com"))
         );
-    }
-
-    private Mono<Boolean> checkSessionActive(String serverUrl, String sessionId) {
-        return webClientBuilder.baseUrl(serverUrl).build()
-                .get().uri("/api/server/game-sessions/" + sessionId + "/active")
-                .retrieve()
-                .bodyToMono(SimpleBooleanDto.class)
-                .map(SimpleBooleanDto::value);
     }
 
     private <T> Mono<T> getException() {

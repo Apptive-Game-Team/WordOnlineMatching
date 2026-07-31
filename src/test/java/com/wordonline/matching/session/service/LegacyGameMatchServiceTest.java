@@ -3,10 +3,13 @@ package com.wordonline.matching.session.service;
 import com.wordonline.matching.auth.dto.UserDetailResponseDto;
 import com.wordonline.matching.auth.service.UserService;
 import com.wordonline.matching.global.service.LocalizationService;
+import com.wordonline.matching.matching.domain.MatchTicket;
+import com.wordonline.matching.matching.domain.MatchTicketState;
+import com.wordonline.matching.matching.dto.MatchedInfoDto;
 import com.wordonline.matching.matching.dto.SessionDto;
+import com.wordonline.matching.matching.repository.MatchTicketRepository;
 import com.wordonline.matching.server.entity.Server;
 import com.wordonline.matching.server.service.GameServerManagementService;
-import com.wordonline.matching.session.domain.SessionRecoveryInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,6 +23,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -33,7 +37,7 @@ import static org.mockito.Mockito.when;
 class LegacyGameMatchServiceTest {
 
     @Mock
-    private SessionRecoveryStore sessionRecoveryStore;
+    private MatchTicketRepository matchTicketRepository;
     @Mock
     private LocalizationService localizationService;
     @Mock
@@ -54,23 +58,55 @@ class LegacyGameMatchServiceTest {
                     .build());
         });
         legacyGameMatchService = new LegacyGameMatchService(
-                webClientBuilder, sessionRecoveryStore, localizationService, userService, gameServerManagementService);
+                webClientBuilder, matchTicketRepository, localizationService, userService, gameServerManagementService);
     }
 
     @Test
-    void 세션이_생성된_게임_서버로_활성_여부를_조회한다() {
-        SessionRecoveryInfo recoveryInfo = new SessionRecoveryInfo(
-                1L, 2L, "session-1", "http://server-b:8080", System.currentTimeMillis() + 60_000);
-        when(sessionRecoveryStore.getSessionInfo(1L)).thenReturn(Mono.just(recoveryInfo));
+    void 매치_정보는_티켓에서_복구되고_게임_서버를_호출하지_않는다() {
+        MatchTicket ticket = new MatchTicket(
+                1L, 1200L, MatchTicketState.PLAYING, Instant.now(), Instant.now(),
+                "session-1", "http://server-b:8080", 1L, 2L, 0);
+        when(matchTicketRepository.findById(1L)).thenReturn(Mono.just(ticket));
         when(userService.getUserDetail(1L)).thenReturn(Mono.just(new UserDetailResponseDto(1L, "left", "l@x.com")));
         when(userService.getUserDetail(2L)).thenReturn(Mono.just(new UserDetailResponseDto(2L, "right", "r@x.com")));
 
         StepVerifier.create(legacyGameMatchService.getMatchInfo(1L))
-                .expectNextCount(1)
+                .assertNext(info -> {
+                    assertEquals("http://server-b:8080", info.getServer());
+                    assertEquals("session-1", info.getSessionId());
+                })
                 .verifyComplete();
 
-        assertEquals("http://server-b:8080/api/server/game-sessions/session-1/active",
-                sentRequests.get(0).url().toString());
+        assertTrue(sentRequests.isEmpty());
+    }
+
+    @Test
+    void 아직_세션이_확정되지_않은_티켓은_매치_정보가_없다() {
+        MatchTicket ticket = new MatchTicket(
+                1L, 1200L, MatchTicketState.QUEUED, Instant.now(), Instant.now(),
+                null, null, null, null, 0);
+        when(matchTicketRepository.findById(1L)).thenReturn(Mono.just(ticket));
+
+        StepVerifier.create(legacyGameMatchService.getMatchInfo(1L))
+                .expectError(IllegalArgumentException.class)
+                .verify();
+    }
+
+    @Test
+    void 세션이_만들어지면_양쪽_티켓을_PLAYING으로_기록한다() {
+        Server server = mock(Server.class);
+        when(server.getUrl()).thenReturn("http://server-a:8080");
+        when(gameServerManagementService.getAvailableServer()).thenReturn(Optional.of(server));
+        when(userService.getUserDetail(1L)).thenReturn(Mono.just(new UserDetailResponseDto(1L, "left", "l@x.com")));
+        when(userService.getUserDetail(2L)).thenReturn(Mono.just(new UserDetailResponseDto(2L, "right", "r@x.com")));
+        when(matchTicketRepository.markPlaying(1L, "session-1", "http://server-a:8080", 1L, 2L))
+                .thenReturn(Mono.just(1L));
+        when(matchTicketRepository.markPlaying(2L, "session-1", "http://server-a:8080", 1L, 2L))
+                .thenReturn(Mono.just(1L));
+
+        StepVerifier.create(legacyGameMatchService.createSession(SessionDto.Companion.PVP("session-1", 1L, 2L)))
+                .assertNext(info -> assertEquals(MatchedInfoDto.class, info.getClass()))
+                .verifyComplete();
     }
 
     @Test

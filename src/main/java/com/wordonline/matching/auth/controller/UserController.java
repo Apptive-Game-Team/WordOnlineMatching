@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.wordonline.matching.auth.dto.UserResponseDto;
@@ -44,11 +45,16 @@ public class UserController {
                 .onErrorResume(ex -> Mono.just(new ResponseEntity<>(HttpStatus.NOT_FOUND)));
     }
 
+    /**
+     * @param wait seconds to hold the request open until the status changes. 0 answers immediately,
+     *             which is what clients that do not know about long-polling keep doing.
+     */
     @GetMapping("/mine/status")
     public Mono<Map<String, String>> getMyStatus(
-            @UserId Long userId
+            @UserId Long userId,
+            @RequestParam(name = "wait", defaultValue = "0") long wait
     ) {
-        return userService.getStatus(userId)
+        return userService.awaitStatus(userId, wait)
                 .map(status -> Map.of("status", status.name()));
     }
 

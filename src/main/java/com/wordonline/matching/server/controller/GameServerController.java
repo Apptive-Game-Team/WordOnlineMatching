@@ -11,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+
 @Slf4j
 @RestController
 @RequestMapping("/api/game-sessions")
@@ -22,6 +24,10 @@ public class GameServerController {
     @GetMapping
     public Mono<RoomListDto> getAllGameSessions() {
         log.info("Fetching all game sessions from all active game servers");
-        return gameSessionService.getAllGameSessions();
+        return gameSessionService.getAllGameSessions()
+                .onErrorResume(error -> {
+                    log.error("Failed to fetch game sessions", error);
+                    return Mono.just(new RoomListDto(List.of()));
+                });
     }
 }

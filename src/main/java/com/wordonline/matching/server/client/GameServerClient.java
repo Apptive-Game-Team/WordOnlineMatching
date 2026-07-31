@@ -18,19 +18,22 @@ public class GameServerClient {
 
     private final WebClient.Builder webClientBuilder;
 
+    /**
+     * Errors propagate on purpose. A failed lookup must stay distinguishable from "this server
+     * has no rooms": callers that reconcile session state would otherwise read a transport failure
+     * as every game having ended.
+     */
     public Mono<RoomListDto> getGameSessions(String serverUrl) {
         log.info("Fetching game sessions from server: {}", serverUrl);
-        
+
         WebClient webClient = webClientBuilder.baseUrl(serverUrl).build();
-        
+
         return webClient.get()
                 .uri("/api/server/game-sessions")
                 .retrieve()
                 .bodyToMono(RoomListDto.class)
-                .onErrorResume(error -> {
-                    log.error("Failed to fetch game sessions from server: {}", serverUrl, error);
-                    return Mono.just(new RoomListDto(java.util.List.of()));
-                });
+                .timeout(Duration.ofSeconds(3))
+                .doOnError(error -> log.error("Failed to fetch game sessions from server: {}", serverUrl, error));
     }
 
     public Mono<Boolean> healthcheck(String serverUrl) {
