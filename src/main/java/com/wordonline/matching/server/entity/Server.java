@@ -28,16 +28,14 @@ public class Server {
         return String.format("%s://%s:%d", protocol, domain, port);
     }
 
-    public boolean isAvailable() {
-        return state == ServerState.ACTIVE;
-    }
-
-    public ServerState updateState(boolean isActive) {
-        if (isActive) {
-            state = ServerState.ACTIVE;
-        } else {
-            state = ServerState.INACTIVE;
-        }
-        return state;
+    /**
+     * A draining server finishes its running sessions but must never receive a new one.
+     * <p>
+     * Every other persisted {@link ServerState} is only a hint: live availability is
+     * decided by the health check result held in
+     * {@link com.wordonline.matching.server.service.ServerHealthRegistry}, not by this column.
+     */
+    public boolean isDraining() {
+        return state == ServerState.DRAINING;
     }
 }
