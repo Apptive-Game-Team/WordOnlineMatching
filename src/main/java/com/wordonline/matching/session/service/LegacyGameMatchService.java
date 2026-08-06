@@ -35,7 +35,7 @@ public class LegacyGameMatchService {
     private final GameServerManagementService gameServerManagementService;
 
     public Mono<MatchedInfoDto> createSession(SessionDto sessionDto) {
-        Optional<Server> optionalServer = gameServerManagementService.getAvailableServer();
+        Optional<Server> optionalServer = Optional.ofNullable(gameServerManagementService.getAvailableServer());
         return getWebClient(optionalServer).flatMap(webClient ->
                 webClient.post().uri("/api/server/game-sessions")
                         .body(Mono.just(sessionDto), SessionDto.class)
@@ -103,7 +103,7 @@ public class LegacyGameMatchService {
     }
 
     private Mono<WebClient> getWebClient() {
-        return getWebClient(gameServerManagementService.getAvailableServer());
+        return getWebClient(Optional.ofNullable(gameServerManagementService.getAvailableServer()));
     }
 
     private Mono<WebClient> getWebClient(Optional<Server> server) {

@@ -22,7 +22,35 @@ Local runs require environment variables from `application.yml`: `PORT`, `DATABA
 
 ## Coding Style & Naming Conventions
 
-Use package-by-feature organization. Java uses Lombok where already established; Kotlin is used for newer matching/deploy code. Keep controllers thin, business logic in services, and database access in repositories. Prefer reactive types (`Mono`, `Flux`) in Java and coroutine interop in Kotlin. Use 4-space indentation and descriptive DTO names such as `MatchedInfoDto` or `DeployStatusResponse`.
+Use package-by-feature organization. Keep controllers thin, business logic in services, and database access in repositories. Use 4-space indentation and descriptive DTO names such as `MatchedInfoDto` or `DeployStatusResponse`.
+
+### Kotlin and coroutines first
+
+New code is Kotlin with coroutines. Do not add new Java classes; put new files under `src/main/kotlin`.
+
+- Write logic as `suspend` functions instead of assembling Reactor chains (`flatMap`, `switchIfEmpty`, `zip`). Accept `Mono`/`Flux` only at the Spring Data R2DBC and `WebClient` boundary, then cross into coroutines immediately with `awaitSingle()`, `awaitSingleOrNull()`, or `asFlow()`. Do not re-wrap a coroutine result back into a Reactor type.
+- Controller handlers are `suspend fun`.
+- Use `coroutineScope { async { } }` for concurrent work so cancellation propagates. Never use `GlobalScope`.
+- Wrap blocking calls in `withContext(Dispatchers.IO)`.
+- Background scheduled work runs on `CoroutineScope(SupervisorJob() + Dispatchers.Default)` with a `CoroutineExceptionHandler`, so one failure cannot tear down the scope. `@Scheduled` cannot invoke a `suspend` function, so the annotated method stays a plain function that launches into that scope.
+- Rethrow `CancellationException` before catching broader exceptions.
+- Test coroutine code with `runTest`. A `@Test` method must return `Unit`; a trailing expression makes the method non-void and JUnit 5 silently skips it, so write `runBlocking<Unit> { }` or annotate the return type. After adding tests, confirm they actually ran in `build/test-results/test`.
+- Lombok-generated accessors are invisible to the Kotlin compiler, which compiles first. When Kotlin needs to read a Lombok-annotated Java entity, convert that entity to Kotlin rather than adding Lombok compiler plugins.
+- When a change effectively rewrites an existing Java file, port it to Kotlin. Leave files that only need a line or two alone, and do not bulk-refactor beyond the task scope.
+
+### Configuration values
+
+Do not inject individual settings with `@Value`. Group related settings into one `@ConfigurationProperties` class and constructor-inject that object.
+
+```kotlin
+@ConfigurationProperties(prefix = "gameserver")
+data class GameServerProperties(
+    val refreshInterval: Duration = Duration.ofSeconds(15),
+    val failureThreshold: Int = 3,
+)
+```
+
+Properties classes are picked up by `@ConfigurationPropertiesScan` on `Application`. Define each default in one place. Annotation arguments that require a string literal, such as `@Scheduled(fixedDelayString = "\${...}")`, are the only exception.
 
 ## Testing Guidelines
 
@@ -37,6 +65,19 @@ Workflow for tracked work in this repo:
 - Create and work on a dedicated branch per issue.
 - Use branch names in the form `<issue-label>/<issue-num>` such as `feature/123` or `fix/39`.
 - After implementation and verification, open a PR linked to the issue.
+
+Every issue and pull request must set an assignee and a label. Do not leave either blank.
+
+- Assignee: `--assignee @me`.
+- Label: use the same value as the branch prefix, so branch `fix/80` carries label `fix`. Check the available labels with `gh label list`; this repo has `fix`, `feature`, `documentation`, and `bug`. Do not invent new labels — ask when none of them fit.
+- Do not attach a project.
+
+```bash
+gh issue create --title "..." --body "..." --assignee @me --label fix
+gh pr create --base <base> --title "..." --body "..." --assignee @me --label fix
+```
+
+Confirm both landed with `gh issue view <n> --json assignees,labels` after creating.
 
 ## Security & Configuration Tips
 

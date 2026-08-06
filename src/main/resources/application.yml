@@ -38,11 +38,12 @@ jwt:
 deploy:
   type: ${DEPLOY_TYPE:DEV}
 
+# Bound to GameServerProperties.
 gameserver:
   # How often the lobby re-discovers game servers and re-probes their health.
-  refresh-interval-ms: ${GAMESERVER_REFRESH_INTERVAL_MS:15000}
+  refresh-interval: ${GAMESERVER_REFRESH_INTERVAL:15s}
   # Per-server healthcheck timeout. A timeout counts as one failed probe, never an error.
-  healthcheck-timeout-ms: ${GAMESERVER_HEALTHCHECK_TIMEOUT_MS:3000}
+  healthcheck-timeout: ${GAMESERVER_HEALTHCHECK_TIMEOUT:3s}
   # Consecutive failed probes before a server stops receiving new sessions.
   # One success restores it immediately.
   failure-threshold: ${GAMESERVER_FAILURE_THRESHOLD:3}
