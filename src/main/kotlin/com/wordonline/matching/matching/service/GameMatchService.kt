@@ -36,19 +36,19 @@ class GameMatchService(
         val sessionId = "bot-${matchingQueueRepository.nextSessionId().awaitSingle()}"
         val botId = botMemberMaker.getRandomEnabledBotId().awaitSingle()
         val sessionDto = SessionDto.Practice(sessionId, userId, botId)
-        return legacyGameMatchService.createSession(sessionDto).awaitSingle()
+        return legacyGameMatchService.createSession(sessionDto)
     }
 
     suspend fun matchBots(leftBotId: Long, rightBotId: Long): MatchedInfoDto {
         val sessionId = "admin-bot-${matchingQueueRepository.nextSessionId().awaitSingle()}"
         val sessionDto = SessionDto.Practice(sessionId, leftBotId, rightBotId)
-        return legacyGameMatchService.createSession(sessionDto).awaitSingle()
+        return legacyGameMatchService.createSession(sessionDto)
     }
 
     suspend fun matchPVE(userId: Long, scenarioId: Long): MatchedInfoDto {
         val sessionId = "pve-${matchingQueueRepository.nextSessionId().awaitSingle()}"
         val sessionDto = SessionDto.PVE(sessionId, userId, scenarioId)
-        return legacyGameMatchService.createSession(sessionDto).awaitSingle()
+        return legacyGameMatchService.createSession(sessionDto)
     }
 
     suspend fun match(userId: Long): SimpleMessageDto {
@@ -112,7 +112,7 @@ class GameMatchService(
             val sessionDto = SessionDto.from(sessionId, uid1, uid2)
 
             try {
-                legacyGameMatchService.createSession(sessionDto).awaitSingle()
+                legacyGameMatchService.createSession(sessionDto)
                 log.info("Users matched: uid1={}, uid2={}, sessionId={}", uid1, uid2, sessionId)
                 userService.markPlaying(uid1).awaitSingleOrNull()
                 userService.markPlaying(uid2).awaitSingleOrNull()
