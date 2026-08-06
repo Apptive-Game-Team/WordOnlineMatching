@@ -11,6 +11,8 @@ import com.wordonline.matching.server.exception.NoAvailableGameServerException
 import com.wordonline.matching.server.service.GameServerManagementService
 import com.wordonline.matching.session.domain.SessionRecoveryInfo
 import com.wordonline.matching.session.dto.SimpleBooleanDto
+import com.wordonline.matching.session.dto.CreateSessionRequest
+import com.wordonline.matching.session.dto.SessionReadyResponse
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -26,6 +28,7 @@ import org.springframework.stereotype.Service
 import org.springframework.web.reactive.function.client.WebClient
 import reactor.core.publisher.Mono
 import java.util.Locale
+import java.util.UUID
 
 @Service
 class LegacyGameMatchService(
@@ -45,24 +48,25 @@ class LegacyGameMatchService(
      * the connection. Both used to fail the whole match even when another healthy server
      * was sitting right there.
      */
-    suspend fun createSession(sessionDto: SessionDto): MatchedInfoDto {
+    suspend fun createSession(sessionDto: SessionDto, attemptId: String = UUID.randomUUID().toString()): MatchedInfoDto {
         val candidates = gameServerManagementService.getAvailableServers()
         if (candidates.isEmpty()) {
             throw NoAvailableGameServerException(localizedMessage("error.gameserver.unavailable"))
         }
 
         for (server in candidates) {
-            if (!offerSession(server, sessionDto)) continue
+            val ready = offerSession(server, sessionDto, attemptId) ?: continue
 
             log.info("Session created on game server {}: sessionId={}", server.url, sessionDto.sessionId)
             val (leftUser, rightUser) = userDetails(sessionDto.uid1, sessionDto.uid2)
             // the URL must come from the server that actually accepted, not from the first candidate
             val matchedInfo = MatchedInfoDto(
                 "Successfully Matched",
-                server.url,
+                ready.serverUrl,
                 leftUser,
                 rightUser,
                 sessionDto.sessionId,
+                ready.webSocketUrl,
             )
             sessionRecoveryStore.storeMatchInfo(matchedInfo).awaitSingleOrNull()
             return matchedInfo
@@ -76,28 +80,29 @@ class LegacyGameMatchService(
         throw NoAvailableGameServerException(localizedMessage("error.gameserver.unavailable"))
     }
 
-    /** @return true when this server took the session; false when it refused or failed. */
-    private suspend fun offerSession(server: Server, sessionDto: SessionDto): Boolean =
+    /** Returns only a validated ready response; refusal, stale response, and transport failure allow failover. */
+    private suspend fun offerSession(server: Server, sessionDto: SessionDto, attemptId: String): SessionReadyResponse? =
         try {
-            val accepted = webClientBuilder.baseUrl(server.url).build()
+            val response = webClientBuilder.baseUrl(server.url).build()
                 .post()
                 .uri("/api/server/game-sessions")
-                .body(Mono.just(sessionDto), SessionDto::class.java)
+                .bodyValue(CreateSessionRequest(attemptId, sessionDto))
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
-                .bodyToMono(SimpleBooleanDto::class.java)
+                .bodyToMono(SessionReadyResponse::class.java)
                 .awaitSingle()
-                .value()
 
-            if (!accepted) {
-                log.warn("Game server {} refused session {}", server.url, sessionDto.sessionId)
+            if (!response.ready || response.attemptId != attemptId || response.sessionId != sessionDto.sessionId) {
+                log.warn("Game server {} returned invalid readiness for session {}", server.url, sessionDto.sessionId)
+                null
+            } else {
+                response
             }
-            accepted
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             log.warn("Game server {} failed to take session {}: {}", server.url, sessionDto.sessionId, e.toString())
-            false
+            null
         }
 
     suspend fun getMatchInfo(userId: Long): MatchedInfoDto {

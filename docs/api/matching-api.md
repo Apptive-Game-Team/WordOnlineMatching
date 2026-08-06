@@ -130,3 +130,19 @@ Response body는 비어 있습니다.
 | 큐 저장소 | 인메모리 (`ConcurrentLinkedQueue`) | **Redis** (`matching:queue` Set) |
 | 세션 정보 저장소 | 인메모리 (`ConcurrentHashMap`) | **Redis** (`matching:result:{userId}`, TTL 10분) |
 | 세션 ID 생성 | 인메모리 `AtomicInteger` | **Redis** `INCR matching:session-counter` |
+
+## MatchTicket 상태 및 복구
+
+Redis `MatchTicket`이 매칭 상태의 source of truth다. 상태는
+`QUEUED`, `ALLOCATING`, `MATCHED`, `CANCELED`, `EXPIRED`, `FAILED` 중 하나이며,
+모든 변경마다 `version`이 증가한다. 클라이언트는 더 큰 version만 적용한다.
+
+- `GET /api/match/tickets/active`: 현재 사용자의 최신 ticket snapshot 조회
+- `POST /api/match/tickets`: ticket 생성 후 전체 snapshot 반환
+- `DELETE /api/match/tickets/{ticketId}`: 사용자 활성 ticket과 ID가 일치할 때만 취소
+- `GET /api/match/events`: best-effort SSE 상태 변경 알림
+- `DELETE /api/match/queue/me`: `CANCELED`, `TOO_LATE`, `ALREADY_FINISHED`, `NOT_FOUND` 결과 반환
+
+SSE 이벤트는 보관하거나 replay하지 않는다. 연결이 끊겼다가 복구되면 클라이언트는
+`GET /api/match/tickets/active`를 호출해 누락된 변경의 최종 snapshot을 동기화해야 한다.
+`ALLOCATING` lease가 만료되면 ticket은 원자적으로 `QUEUED`로 복구된다.

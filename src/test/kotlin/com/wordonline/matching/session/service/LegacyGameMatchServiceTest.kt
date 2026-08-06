@@ -49,10 +49,10 @@ class LegacyGameMatchServiceTest {
         )
     }
 
-    private fun booleanResponse(value: Boolean): ClientResponse =
+    private fun readyResponse(ready: Boolean): ClientResponse =
         ClientResponse.create(HttpStatus.OK)
             .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-            .body("""{"value":$value}""")
+            .body("""{"attemptId":"attempt-1","sessionId":"session-1","ready":$ready,"serverUrl":"http://internal:9090","webSocketUrl":"wss://game.example/ws"}""")
             .build()
 
     private fun server(id: Long, domain: String) = Server(
@@ -80,12 +80,13 @@ class LegacyGameMatchServiceTest {
             .thenReturn(listOf(server(1L, "alpha"), server(2L, "beta")))
 
         val matched = service { request ->
-            booleanResponse(request.url().host == "beta")
-        }.createSession(sessionDto)
+            readyResponse(request.url().host == "beta")
+        }.createSession(sessionDto, "attempt-1")
 
         assertThat(matched.server)
             .`as`("첫 후보가 아니라 실제로 수락한 서버의 URL이어야 한다")
-            .isEqualTo("http://beta:9090")
+            .isEqualTo("http://internal:9090")
+        assertThat(matched.webSocketUrl).isEqualTo("wss://game.example/ws")
         assertThat(sentRequests.map { it.url().host }).containsExactly("alpha", "beta")
     }
 
@@ -98,13 +99,15 @@ class LegacyGameMatchServiceTest {
         val builder = WebClient.builder().exchangeFunction { request ->
             sentRequests += request
             if (request.url().host == "alpha") Mono.error(IllegalStateException("connection refused"))
-            else Mono.just(booleanResponse(true))
+            else Mono.just(readyResponse(true))
         }
         val service = LegacyGameMatchService(
             builder, sessionRecoveryStore, localizationService, userService, gameServerManagementService,
         )
 
-        assertThat(service.createSession(sessionDto).server).isEqualTo("http://beta:9090")
+        val matched = service.createSession(sessionDto, "attempt-1")
+        assertThat(matched.server).isEqualTo("http://internal:9090")
+        assertThat(matched.webSocketUrl).isEqualTo("wss://game.example/ws")
     }
 
     @Test
@@ -112,7 +115,7 @@ class LegacyGameMatchServiceTest {
         stubUsers()
         whenever(gameServerManagementService.getAvailableServers()).thenReturn(emptyList())
 
-        val error = runCatching { service { booleanResponse(true) }.createSession(sessionDto) }.exceptionOrNull()
+        val error = runCatching { service { readyResponse(true) }.createSession(sessionDto, "attempt-1") }.exceptionOrNull()
 
         assertThat(error).isInstanceOf(NoAvailableGameServerException::class.java)
         assertThat(sentRequests).`as`("서버가 없으면 요청을 보내지 않는다").isEmpty()
@@ -124,11 +127,25 @@ class LegacyGameMatchServiceTest {
         whenever(gameServerManagementService.getAvailableServers())
             .thenReturn(listOf(server(1L, "alpha"), server(2L, "beta")))
 
-        val error = runCatching { service { booleanResponse(false) }.createSession(sessionDto) }.exceptionOrNull()
+        val error = runCatching { service { readyResponse(false) }.createSession(sessionDto, "attempt-1") }.exceptionOrNull()
 
         assertThat(error).isInstanceOf(NoAvailableGameServerException::class.java)
         assertThat(sentRequests.map { it.url().host })
             .`as`("포기하기 전에 모든 후보를 시도한다").containsExactly("alpha", "beta")
+    }
+
+    @Test
+    fun `다른 attempt 응답은 준비 완료로 인정하지 않는다`() = runTest {
+        stubUsers()
+        whenever(gameServerManagementService.getAvailableServers()).thenReturn(listOf(server(1L, "alpha")))
+        val mismatched = ClientResponse.create(HttpStatus.OK)
+            .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+            .body("""{"attemptId":"stale-attempt","sessionId":"session-1","ready":true,"serverUrl":"http://alpha:9090","webSocketUrl":"wss://alpha/ws"}""")
+            .build()
+
+        val error = runCatching { service { mismatched }.createSession(sessionDto, "attempt-1") }.exceptionOrNull()
+
+        assertThat(error).isInstanceOf(NoAvailableGameServerException::class.java)
     }
 
     @Test
@@ -146,6 +163,12 @@ class LegacyGameMatchServiceTest {
         assertThat(sentRequests.single().url().host).isEqualTo("gamma")
         assertThat(matched.sessionId).isEqualTo("session-1")
     }
+
+    private fun booleanResponse(value: Boolean): ClientResponse =
+        ClientResponse.create(HttpStatus.OK)
+            .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+            .body("""{"value":$value}""")
+            .build()
 
     @Test
     fun `호스팅 서버가 응답하지 않으면 세션 종료가 아니라 도달 불가로 구분한다`() = runTest {
