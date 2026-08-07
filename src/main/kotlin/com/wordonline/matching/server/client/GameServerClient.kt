@@ -29,6 +29,9 @@ class GameServerClient(
             .uri("/api/server/game-sessions")
             .retrieve()
             .bodyToMono(RoomListDto::class.java)
+            // The timeout stays *above* onErrorResume so an unresponsive server collapses to an
+            // empty room list. Below it, the TimeoutException would escape the error handler.
+            .timeout(properties.sessionsTimeout)
             .onErrorResume { error ->
                 log.error("Failed to fetch game sessions from server: {}", serverUrl, error)
                 Mono.just(RoomListDto(emptyList()))

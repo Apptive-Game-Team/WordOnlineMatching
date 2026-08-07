@@ -19,6 +19,12 @@ data class GameServerProperties(
     val healthcheckTimeout: Duration = Duration.ofSeconds(3),
 
     /**
+     * Timeout for fetching a server's room list. An unresponsive server must yield an empty
+     * room list quickly instead of stalling the caller's room browser.
+     */
+    val sessionsTimeout: Duration = Duration.ofSeconds(3),
+
+    /**
      * Consecutive failed probes before a server stops receiving new sessions.
      * One success restores it immediately.
      */

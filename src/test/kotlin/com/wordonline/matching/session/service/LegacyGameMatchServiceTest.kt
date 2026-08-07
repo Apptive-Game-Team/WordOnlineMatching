@@ -135,6 +135,24 @@ class LegacyGameMatchServiceTest {
     }
 
     @Test
+    fun `유저 조회에 실패하면 게임 서버에 방을 만들지 않는다`() = runTest {
+        whenever(gameServerManagementService.getAvailableServers())
+            .thenReturn(listOf(server(1L, "alpha"), server(2L, "beta")))
+        whenever(userService.getUserDetail(1L))
+            .thenReturn(Mono.error(IllegalStateException("account server down")))
+        whenever(userService.getUserDetail(2L))
+            .thenReturn(Mono.just(UserDetailResponseDto(2L, "right", "right@team6515.com")))
+
+        val error = runCatching { service { readyResponse(true) }.createSession(sessionDto, "attempt-1") }
+            .exceptionOrNull()
+
+        assertThat(error).isInstanceOf(IllegalStateException::class.java)
+        assertThat(sentRequests)
+            .`as`("유저 조회가 실패하면 어떤 게임 서버에도 방 생성 요청을 보내지 않는다")
+            .isEmpty()
+    }
+
+    @Test
     fun `다른 attempt 응답은 준비 완료로 인정하지 않는다`() = runTest {
         stubUsers()
         whenever(gameServerManagementService.getAvailableServers()).thenReturn(listOf(server(1L, "alpha")))

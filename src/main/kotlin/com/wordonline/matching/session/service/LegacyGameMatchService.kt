@@ -47,6 +47,12 @@ class LegacyGameMatchService(
      * already flipped itself out of `ACTIVE` answers `false`, and a redeploying one drops
      * the connection. Both used to fail the whole match even when another healthy server
      * was sitting right there.
+     *
+     * Order matters: availability check, then user lookup, then the candidate loop. With no
+     * server at all the user lookup is wasted work, but a failed user lookup must never leave
+     * an orphan room behind on a game server, so it has to finish before the first offer goes
+     * out. Looking the users up once outside the loop also keeps a failover from re-querying
+     * the account server per candidate.
      */
     suspend fun createSession(sessionDto: SessionDto, attemptId: String = UUID.randomUUID().toString()): MatchedInfoDto {
         val candidates = gameServerManagementService.getAvailableServers()
@@ -54,11 +60,12 @@ class LegacyGameMatchService(
             throw NoAvailableGameServerException(localizedMessage("error.gameserver.unavailable"))
         }
 
+        val (leftUser, rightUser) = userDetails(sessionDto.uid1, sessionDto.uid2)
+
         for (server in candidates) {
             val ready = offerSession(server, sessionDto, attemptId) ?: continue
 
             log.info("Session created on game server {}: sessionId={}", server.url, sessionDto.sessionId)
-            val (leftUser, rightUser) = userDetails(sessionDto.uid1, sessionDto.uid2)
             // the URL must come from the server that actually accepted, not from the first candidate
             val matchedInfo = MatchedInfoDto(
                 "Successfully Matched",

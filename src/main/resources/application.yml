@@ -1,6 +1,20 @@
 server:
   port: ${PORT}
 
+# Metrics run on their own port so the public app port never serves /actuator.
+# The app SecurityFilterChain does not guard the management context, so
+# MANAGEMENT_PORT must stay reachable only from the Prometheus host.
+management:
+  server:
+    port: ${MANAGEMENT_PORT:8081}
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
 spring:
   application:
     name: word-online-matching
@@ -50,6 +64,8 @@ gameserver:
   refresh-interval: ${GAMESERVER_REFRESH_INTERVAL:15s}
   # Per-server healthcheck timeout. A timeout counts as one failed probe, never an error.
   healthcheck-timeout: ${GAMESERVER_HEALTHCHECK_TIMEOUT:3s}
+  # Room list fetch timeout. On timeout the server yields an empty room list.
+  sessions-timeout: ${GAMESERVER_SESSIONS_TIMEOUT:3s}
   # Consecutive failed probes before a server stops receiving new sessions.
   # One success restores it immediately.
   failure-threshold: ${GAMESERVER_FAILURE_THRESHOLD:3}
