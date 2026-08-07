@@ -57,6 +57,8 @@ public interface UserScenarioRepository extends R2dbcRepository<UserScenario, Lo
     )
     Mono<Void> updateStateActiveWhenBeforeScenarioIsFinished(Long userId);
 
+    Mono<UserScenario> findByUserIdAndScenarioId(Long userId, Long scenarioId);
+
     @Query(
             """
             SELECT COUNT(*) AS count
