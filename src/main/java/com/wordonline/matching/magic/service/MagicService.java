@@ -26,7 +26,7 @@ public class MagicService {
     }
 
     public Mono<Void> giveMagic(long userId, long magicId) {
-        return userMagicRepository.save(new UserMagic(userId, magicId))
+        return userMagicRepository.save(new UserMagic(null, magicId, userId))
                 .then();
     }
 }

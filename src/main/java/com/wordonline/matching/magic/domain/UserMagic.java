@@ -17,8 +17,4 @@ public class UserMagic {
     private Long id;
     private Long magicId;
     private Long userId;
-
-    public UserMagic(Long magicId, Long userId) {
-        this(null, magicId, userId);
-    }
 }

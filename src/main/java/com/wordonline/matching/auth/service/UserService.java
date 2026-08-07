@@ -3,6 +3,7 @@ package com.wordonline.matching.auth.service;
 import org.springframework.context.i18n.LocaleContext;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.wordonline.matching.auth.domain.User;
@@ -111,6 +112,7 @@ public class UserService {
                 .map(user -> user.getMmr() != null ? user.getMmr() : 0L);
     }
 
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public Mono<UserStatus> getStatus(Long userId) {
         if (userId == null || userId < 0){
             return Mono.empty();

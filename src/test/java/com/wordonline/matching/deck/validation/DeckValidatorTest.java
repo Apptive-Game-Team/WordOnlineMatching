@@ -11,27 +11,36 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.wordonline.matching.deck.domain.UserCard;
 import com.wordonline.matching.deck.dto.CardDto;
 import com.wordonline.matching.deck.dto.CardType;
+import com.wordonline.matching.deck.repository.UserCardRepository;
 import com.wordonline.matching.deck.service.DeckDataService;
 
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 @ExtendWith(MockitoExtension.class)
 class DeckValidatorTest {
 
+    private static final long USER_ID = 1L;
+
     @Mock
     private DeckDataService deckDataService;
+
+    @Mock
+    private UserCardRepository userCardRepository;
 
     @InjectMocks
     private DeckValidator deckValidator;
 
     @Test
     void isValid_ReturnsTrue_WhenDeckSatisfiesStandard() {
-        when(deckDataService.getCardDtoMap()).thenReturn(Mono.just(cardMap()));
+        stubCards();
+        stubOwnedCards(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L, 11L);
 
-        StepVerifier.create(deckValidator.isValid(List.of(
+        StepVerifier.create(deckValidator.isValid(USER_ID, List.of(
                         1L, 1L, 2L, 3L, 3L, 3L, 4L, 5L, 5L,
                         6L, 7L, 8L, 9L, 10L, 11L
                 )))
@@ -41,16 +50,14 @@ class DeckValidatorTest {
 
     @Test
     void isValid_ReturnsFalse_WhenDeckSizeIsNotFifteen() {
-        StepVerifier.create(deckValidator.isValid(List.of(1L, 2L)))
+        StepVerifier.create(deckValidator.isValid(USER_ID, List.of(1L, 2L)))
                 .expectNext(false)
                 .verifyComplete();
     }
 
     @Test
     void isValid_ReturnsFalse_WhenSameCardIsMoreThanThree() {
-        when(deckDataService.getCardDtoMap()).thenReturn(Mono.just(cardMap()));
-
-        StepVerifier.create(deckValidator.isValid(List.of(
+        StepVerifier.create(deckValidator.isValid(USER_ID, List.of(
                         1L, 1L, 1L, 1L, 2L, 3L, 4L, 5L, 5L,
                         6L, 7L, 8L, 9L, 10L, 11L
                 )))
@@ -60,9 +67,10 @@ class DeckValidatorTest {
 
     @Test
     void isValid_ReturnsFalse_WhenMagicTypesAreLessThanThree() {
-        when(deckDataService.getCardDtoMap()).thenReturn(Mono.just(cardMap()));
+        stubCards();
+        stubOwnedCards(1L, 2L, 6L, 7L, 8L);
 
-        StepVerifier.create(deckValidator.isValid(List.of(
+        StepVerifier.create(deckValidator.isValid(USER_ID, List.of(
                         1L, 1L, 1L, 2L, 2L, 2L, 6L, 6L, 6L,
                         7L, 7L, 7L, 8L, 8L, 8L
                 )))
@@ -72,14 +80,62 @@ class DeckValidatorTest {
 
     @Test
     void isValid_ReturnsFalse_WhenAttributeTypesAreLessThanTwo() {
-        when(deckDataService.getCardDtoMap()).thenReturn(Mono.just(cardMap()));
+        stubCards();
+        stubOwnedCards(1L, 2L, 3L, 4L, 6L);
 
-        StepVerifier.create(deckValidator.isValid(List.of(
+        StepVerifier.create(deckValidator.isValid(USER_ID, List.of(
                         1L, 1L, 1L, 2L, 2L, 2L, 3L, 3L, 3L,
                         4L, 4L, 4L, 6L, 6L, 6L
                 )))
                 .expectNext(false)
                 .verifyComplete();
+    }
+
+    @Test
+    void isValid_ReturnsFalse_WhenCardIsNotOwned() {
+        stubCards();
+        stubOwnedCards(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L);
+
+        StepVerifier.create(deckValidator.isValid(USER_ID, List.of(
+                        1L, 1L, 2L, 3L, 3L, 3L, 4L, 5L, 5L,
+                        6L, 7L, 8L, 9L, 10L, 11L
+                )))
+                .expectNext(false)
+                .verifyComplete();
+    }
+
+    @Test
+    void isValid_ReturnsFalse_WhenOwnedCountIsLessThanRequested() {
+        stubCards();
+        when(userCardRepository.findAllByUserId(USER_ID)).thenReturn(Flux.just(
+                new UserCard(USER_ID, 1L, 3),
+                new UserCard(USER_ID, 2L, 3),
+                new UserCard(USER_ID, 3L, 1),
+                new UserCard(USER_ID, 4L, 3),
+                new UserCard(USER_ID, 5L, 3),
+                new UserCard(USER_ID, 6L, 3),
+                new UserCard(USER_ID, 7L, 3),
+                new UserCard(USER_ID, 8L, 3),
+                new UserCard(USER_ID, 9L, 3),
+                new UserCard(USER_ID, 10L, 3),
+                new UserCard(USER_ID, 11L, 3)
+        ));
+
+        StepVerifier.create(deckValidator.isValid(USER_ID, List.of(
+                        1L, 1L, 2L, 3L, 3L, 3L, 4L, 5L, 5L,
+                        6L, 7L, 8L, 9L, 10L, 11L
+                )))
+                .expectNext(false)
+                .verifyComplete();
+    }
+
+    private void stubCards() {
+        when(deckDataService.getCardDtoMap()).thenReturn(Mono.just(cardMap()));
+    }
+
+    private void stubOwnedCards(Long... cardIds) {
+        when(userCardRepository.findAllByUserId(USER_ID)).thenReturn(
+                Flux.fromArray(cardIds).map(cardId -> new UserCard(USER_ID, cardId, 3)));
     }
 
     private Map<Long, CardDto> cardMap() {
