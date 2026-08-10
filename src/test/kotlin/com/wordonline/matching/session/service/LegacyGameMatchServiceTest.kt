@@ -52,7 +52,7 @@ class LegacyGameMatchServiceTest {
     private fun readyResponse(ready: Boolean): ClientResponse =
         ClientResponse.create(HttpStatus.OK)
             .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-            .body("""{"attemptId":"attempt-1","sessionId":"session-1","ready":$ready,"serverUrl":"http://internal:9090","webSocketUrl":"wss://game.example/ws"}""")
+            .body("""{"attemptId":"attempt-1","sessionId":"session-1","ready":$ready,"serverUrl":"http://internal:9090","webSocketUrl":"wss://game.example/ws","instanceId":"boot-1"}""")
             .build()
 
     private fun server(id: Long, domain: String) = Server(
@@ -83,11 +83,40 @@ class LegacyGameMatchServiceTest {
             readyResponse(request.url().host == "beta")
         }.createSession(sessionDto, "attempt-1")
 
-        assertThat(matched.server)
+        assertThat(matched.matchInfo.server)
             .`as`("첫 후보가 아니라 실제로 수락한 서버의 URL이어야 한다")
             .isEqualTo("http://internal:9090")
-        assertThat(matched.webSocketUrl).isEqualTo("wss://game.example/ws")
+        assertThat(matched.matchInfo.webSocketUrl).isEqualTo("wss://game.example/ws")
         assertThat(sentRequests.map { it.url().host }).containsExactly("alpha", "beta")
+    }
+
+    @Test
+    fun `수락한 서버의 id와 부팅 세대값을 배치 결과에 담는다`() = runTest {
+        stubUsers()
+        whenever(gameServerManagementService.getAvailableServers())
+            .thenReturn(listOf(server(1L, "alpha"), server(2L, "beta")))
+
+        val placement = service { request -> readyResponse(request.url().host == "beta") }
+            .createSession(sessionDto, "attempt-1")
+
+        assertThat(placement.serverId)
+            .`as`("호스트 생존 판정은 실제로 수락한 서버 행을 봐야 한다")
+            .isEqualTo(2L)
+        assertThat(placement.serverInstanceId).isEqualTo("boot-1")
+    }
+
+    @Test
+    fun `부팅 세대값을 보내지 않는 구버전 게임 서버도 배치에 성공한다`() = runTest {
+        stubUsers()
+        whenever(gameServerManagementService.getAvailableServers()).thenReturn(listOf(server(1L, "alpha")))
+        val withoutInstanceId = ClientResponse.create(HttpStatus.OK)
+            .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+            .body("""{"attemptId":"attempt-1","sessionId":"session-1","ready":true,"serverUrl":"http://alpha:9090","webSocketUrl":"wss://alpha/ws"}""")
+            .build()
+
+        val placement = service { withoutInstanceId }.createSession(sessionDto, "attempt-1")
+
+        assertThat(placement.serverInstanceId).isNull()
     }
 
     @Test
@@ -106,8 +135,8 @@ class LegacyGameMatchServiceTest {
         )
 
         val matched = service.createSession(sessionDto, "attempt-1")
-        assertThat(matched.server).isEqualTo("http://internal:9090")
-        assertThat(matched.webSocketUrl).isEqualTo("wss://game.example/ws")
+        assertThat(matched.matchInfo.server).isEqualTo("http://internal:9090")
+        assertThat(matched.matchInfo.webSocketUrl).isEqualTo("wss://game.example/ws")
     }
 
     @Test

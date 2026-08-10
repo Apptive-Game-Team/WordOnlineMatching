@@ -28,6 +28,26 @@ class MatchTicketRepository(
         private const val TICKET_PREFIX = "matching:ticket:"
         private const val EVENT_PREFIX = "matching:events:"
         private const val LEASE_KEY = "matching:allocation-leases"
+
+        /**
+         * Index of tickets currently in `MATCHED`, scored by the instant they got there.
+         * Without it there is no way to iterate live sessions, so a game server that
+         * restarted left both tickets stuck with nobody watching them.
+         */
+        const val MATCHED_KEY = "matching:matched"
+
+        /**
+         * Tickets a client reported as lost that the lobby could not verify yet, scored by
+         * the time of the report.
+         *
+         * A deferred verdict leaves the ticket `MATCHED`, and the client re-enters the game
+         * scene on any `MATCHED` snapshot, so it bounces between lobby and game until the
+         * verdict lands. Waiting a full sweep for that is the difference between a couple of
+         * bounces and a couple of dozen; the reconciler drains this set on a much shorter
+         * schedule. It changes only how soon a session is re-probed, never what counts as
+         * proof that it ended.
+         */
+        const val PENDING_VERIFICATION_KEY = "matching:matched:pending"
     }
 
     private val enqueueScript = DefaultRedisScript(ENQUEUE_SCRIPT, String::class.java)
@@ -63,8 +83,17 @@ class MatchTicketRepository(
     suspend fun transition(ticket: MatchTicket, expected: MatchTicketState): MatchTicket? {
         val result = redis.execute(
             transitionScript,
-            listOf(ticketKey(ticket.ticketId), eventKey(ticket.userId), LEASE_KEY, QUEUE_KEY),
-            listOf(expected.name, encode(ticket), ticket.ticketId, properties.terminalTtl.toMillis().toString(), ticket.state.name, ticket.userId.toString(), ticket.updatedAt.toEpochMilli().toString()),
+            listOf(ticketKey(ticket.ticketId), eventKey(ticket.userId), LEASE_KEY, QUEUE_KEY, activeKey(ticket.userId), MATCHED_KEY),
+            listOf(
+                expected.name,
+                encode(ticket),
+                ticket.ticketId,
+                properties.terminalTtl.toMillis().toString(),
+                ticket.state.name,
+                ticket.userId.toString(),
+                ticket.updatedAt.toEpochMilli().toString(),
+                ticket.state.isTerminal.toString(),
+            ),
         ).next().awaitSingleOrNull()
         return result?.takeIf { it.isNotEmpty() }?.let(::decode)
     }
@@ -72,8 +101,30 @@ class MatchTicketRepository(
     suspend fun transitionPair(first: MatchTicket, second: MatchTicket, expected: MatchTicketState): Boolean {
         val result = redis.execute(
             transitionPairScript,
-            listOf(ticketKey(first.ticketId), ticketKey(second.ticketId), eventKey(first.userId), eventKey(second.userId), LEASE_KEY),
-            listOf(expected.name, encode(first), encode(second), first.ticketId, second.ticketId, properties.terminalTtl.toMillis().toString()),
+            listOf(
+                ticketKey(first.ticketId),
+                ticketKey(second.ticketId),
+                eventKey(first.userId),
+                eventKey(second.userId),
+                LEASE_KEY,
+                activeKey(first.userId),
+                activeKey(second.userId),
+                MATCHED_KEY,
+                QUEUE_KEY,
+            ),
+            listOf(
+                expected.name,
+                encode(first),
+                encode(second),
+                first.ticketId,
+                second.ticketId,
+                properties.terminalTtl.toMillis().toString(),
+                first.state.name,
+                first.userId.toString(),
+                second.userId.toString(),
+                first.updatedAt.toEpochMilli().toString(),
+                first.state.isTerminal.toString(),
+            ),
         ).next().awaitSingle()
         return result == 1L
     }
@@ -104,6 +155,54 @@ class MatchTicketRepository(
         val cutoff = Instant.now(clock).minus(properties.queueTimeout).toEpochMilli().toDouble()
         val ids = redis.opsForZSet().rangeByScore(QUEUE_KEY, Range.closed(Double.NEGATIVE_INFINITY, cutoff)).collectList().awaitSingle()
         return ids.mapNotNull { getActive(it.toLong()) }.filter { it.state == MatchTicketState.QUEUED }
+    }
+
+    /**
+     * Oldest `MATCHED` tickets first, skipping anything that reached `MATCHED` more recently
+     * than [settledBefore].
+     *
+     * Index entries whose ticket key is gone, or whose ticket has since moved on, are pruned
+     * here: nothing else would ever remove them once a ticket key expires.
+     */
+    suspend fun settledMatched(settledBefore: Instant, limit: Long): List<MatchTicket> =
+        stillMatched(MATCHED_KEY, settledBefore.toEpochMilli().toDouble(), limit)
+
+    /** Records that a reported ticket could not be verified yet, for a fast re-check. */
+    suspend fun markPendingVerification(ticketId: String, reportedAt: Instant) {
+        redis.opsForZSet().add(PENDING_VERIFICATION_KEY, ticketId, reportedAt.toEpochMilli().toDouble()).awaitSingleOrNull()
+    }
+
+    suspend fun clearPendingVerification(ticketId: String) {
+        redis.opsForZSet().remove(PENDING_VERIFICATION_KEY, ticketId).awaitSingleOrNull()
+    }
+
+    /** Reported-but-unverified tickets, oldest report first. No grace period: they were reported. */
+    suspend fun pendingVerification(limit: Long): List<MatchTicket> =
+        stillMatched(PENDING_VERIFICATION_KEY, Double.POSITIVE_INFINITY, limit)
+
+    /**
+     * Reads an index of ticket ids and drops the entries that no longer name a `MATCHED`
+     * ticket. Nothing else prunes them once a ticket key expires.
+     */
+    private suspend fun stillMatched(indexKey: String, maxScore: Double, limit: Long): List<MatchTicket> {
+        val ids = redis.opsForZSet()
+            .rangeByScore(
+                indexKey,
+                Range.closed(Double.NEGATIVE_INFINITY, maxScore),
+                org.springframework.data.redis.connection.Limit.limit().count(limit.toInt()),
+            )
+            .collectList()
+            .awaitSingle()
+
+        return ids.mapNotNull { ticketId ->
+            val ticket = redis.opsForValue().get(ticketKey(ticketId)).awaitSingleOrNull()?.let(::decode)
+            if (ticket == null || ticket.state != MatchTicketState.MATCHED) {
+                redis.opsForZSet().remove(indexKey, ticketId).awaitSingleOrNull()
+                null
+            } else {
+                ticket
+            }
+        }
     }
 
     fun events(userId: Long) = redis.listenToChannel(eventKey(userId))
@@ -144,13 +243,26 @@ redis.call('PUBLISH', KEYS[4], ARGV[1]); redis.call('PUBLISH', KEYS[5], ARGV[2])
 return 1
 """
 
+/**
+ * KEYS: ticket, events, leases, queue, active, matched-index.
+ * ARGV: expected state, payload, ticketId, terminalTtlMs, new state, userId, updatedAtMs, terminal flag.
+ *
+ * `SET` without `PX` clears any TTL left over from an earlier state, and the expiry is
+ * re-applied only for terminal states - a `MATCHED` ticket must outlive `terminalTtl`.
+ * The active pointer is released by compare-and-delete so a user who already re-queued
+ * keeps the newer ticket.
+ */
 private const val TRANSITION_SCRIPT = """
 local current = redis.call('GET', KEYS[1])
 if not current or cjson.decode(current).state ~= ARGV[1] then return '' end
 redis.call('SET', KEYS[1], ARGV[2]); redis.call('ZREM', KEYS[3], ARGV[3])
 redis.call('PUBLISH', KEYS[2], ARGV[2])
-if ARGV[5] ~= 'QUEUED' and ARGV[5] ~= 'ALLOCATING' then redis.call('ZREM', KEYS[4], ARGV[6]); redis.call('PEXPIRE', KEYS[1], ARGV[4]) end
-if ARGV[5] == 'QUEUED' then redis.call('ZADD', KEYS[4], ARGV[7], ARGV[6]) end
+if ARGV[5] == 'QUEUED' then redis.call('ZADD', KEYS[4], ARGV[7], ARGV[6]) else redis.call('ZREM', KEYS[4], ARGV[6]) end
+if ARGV[5] == 'MATCHED' then redis.call('ZADD', KEYS[6], ARGV[7], ARGV[3]) else redis.call('ZREM', KEYS[6], ARGV[3]) end
+if ARGV[8] == 'true' then
+  redis.call('PEXPIRE', KEYS[1], ARGV[4])
+  if redis.call('GET', KEYS[5]) == ARGV[3] then redis.call('DEL', KEYS[5]) end
+end
 return ARGV[2]
 """
 
@@ -162,16 +274,36 @@ local ticket = cjson.decode(raw)
 if ticket.state == 'QUEUED' then
  ticket.state = 'CANCELED'; ticket.reason = 'USER_REQUESTED'; ticket.version = ticket.version + 1; ticket.updatedAt = ARGV[3]
  local updated = cjson.encode(ticket); redis.call('SET', key, updated); redis.call('ZREM', KEYS[2], ARGV[2]); redis.call('ZREM', KEYS[4], id)
- redis.call('PUBLISH', KEYS[3], updated); redis.call('PEXPIRE', key, ARGV[4]); return updated
+ redis.call('PUBLISH', KEYS[3], updated); redis.call('PEXPIRE', key, ARGV[4]); redis.call('DEL', KEYS[1]); return updated
 end
 return raw
 """
 
+/**
+ * KEYS: first ticket, second ticket, first events, second events, leases,
+ *       first active, second active, matched-index, queue.
+ * ARGV: expected state, first payload, second payload, first ticketId, second ticketId,
+ *       terminalTtlMs, new state, first userId, second userId, updatedAtMs, terminal flag.
+ *
+ * The unconditional `SET ... 'PX'` this replaces silently expired `MATCHED` tickets after
+ * `terminalTtl`, killing the ticket of any session that ran longer than 30 minutes.
+ */
 private const val TRANSITION_PAIR_SCRIPT = """
 local first = redis.call('GET', KEYS[1]); local second = redis.call('GET', KEYS[2])
 if not first or not second or cjson.decode(first).state ~= ARGV[1] or cjson.decode(second).state ~= ARGV[1] then return 0 end
-redis.call('SET', KEYS[1], ARGV[2], 'PX', ARGV[6]); redis.call('SET', KEYS[2], ARGV[3], 'PX', ARGV[6])
+redis.call('SET', KEYS[1], ARGV[2]); redis.call('SET', KEYS[2], ARGV[3])
 redis.call('ZREM', KEYS[5], ARGV[4], ARGV[5])
+redis.call('ZREM', KEYS[9], ARGV[8], ARGV[9])
+if ARGV[7] == 'MATCHED' then
+  redis.call('ZADD', KEYS[8], ARGV[10], ARGV[4], ARGV[10], ARGV[5])
+else
+  redis.call('ZREM', KEYS[8], ARGV[4], ARGV[5])
+end
+if ARGV[11] == 'true' then
+  redis.call('PEXPIRE', KEYS[1], ARGV[6]); redis.call('PEXPIRE', KEYS[2], ARGV[6])
+  if redis.call('GET', KEYS[6]) == ARGV[4] then redis.call('DEL', KEYS[6]) end
+  if redis.call('GET', KEYS[7]) == ARGV[5] then redis.call('DEL', KEYS[7]) end
+end
 redis.call('PUBLISH', KEYS[3], ARGV[2]); redis.call('PUBLISH', KEYS[4], ARGV[3])
 return 1
 """

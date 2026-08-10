@@ -49,19 +49,19 @@ class GameMatchService(
         val sessionId = "bot-${matchingQueueRepository.nextSessionId().awaitSingle()}"
         val botId = botMemberMaker.getRandomEnabledBotId().awaitSingle()
         val sessionDto = SessionDto.Practice(sessionId, userId, botId)
-        return legacyGameMatchService.createSession(sessionDto)
+        return legacyGameMatchService.createSession(sessionDto).matchInfo
     }
 
     suspend fun matchBots(leftBotId: Long, rightBotId: Long): MatchedInfoDto {
         val sessionId = "admin-bot-${matchingQueueRepository.nextSessionId().awaitSingle()}"
         val sessionDto = SessionDto.Practice(sessionId, leftBotId, rightBotId)
-        return legacyGameMatchService.createSession(sessionDto)
+        return legacyGameMatchService.createSession(sessionDto).matchInfo
     }
 
     suspend fun matchPVE(userId: Long, scenarioId: Long): MatchedInfoDto {
         val sessionId = "pve-${matchingQueueRepository.nextSessionId().awaitSingle()}"
         val sessionDto = SessionDto.PVE(sessionId, userId, scenarioId)
-        return legacyGameMatchService.createSession(sessionDto)
+        return legacyGameMatchService.createSession(sessionDto).matchInfo
     }
 
     suspend fun match(userId: Long): SimpleMessageDto {
@@ -150,11 +150,29 @@ class GameMatchService(
             val sessionDto = SessionDto.from(sessionId, uid1, uid2)
 
             try {
-                val matchInfo = legacyGameMatchService.createSession(sessionDto, attemptId)
+                val placement = legacyGameMatchService.createSession(sessionDto, attemptId)
                 val matchedAt = Instant.now(clock)
+                // The host's boot generation rides on the ticket: it is the only way to tell
+                // later that the process holding this in-memory session was replaced.
                 val completed = matchTicketRepository.transitionPair(
-                    first.copy(state = MatchTicketState.MATCHED, version = first.version + 1, matchInfo = matchInfo, allocationLeaseUntil = null, updatedAt = matchedAt),
-                    second.copy(state = MatchTicketState.MATCHED, version = second.version + 1, matchInfo = matchInfo, allocationLeaseUntil = null, updatedAt = matchedAt),
+                    first.copy(
+                        state = MatchTicketState.MATCHED,
+                        version = first.version + 1,
+                        matchInfo = placement.matchInfo,
+                        serverId = placement.serverId,
+                        serverInstanceId = placement.serverInstanceId,
+                        allocationLeaseUntil = null,
+                        updatedAt = matchedAt,
+                    ),
+                    second.copy(
+                        state = MatchTicketState.MATCHED,
+                        version = second.version + 1,
+                        matchInfo = placement.matchInfo,
+                        serverId = placement.serverId,
+                        serverInstanceId = placement.serverInstanceId,
+                        allocationLeaseUntil = null,
+                        updatedAt = matchedAt,
+                    ),
                     MatchTicketState.ALLOCATING,
                 )
                 check(completed) { "Match tickets changed before completion: attemptId=$attemptId" }

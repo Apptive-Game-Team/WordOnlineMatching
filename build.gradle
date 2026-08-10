@@ -51,6 +51,9 @@ dependencies {
     testImplementation 'io.projectreactor:reactor-test'
     testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test'
     testImplementation 'org.mockito.kotlin:mockito-kotlin:5.4.0'
+    // Runs the repository's Lua scripts on the JVM so redis-side behaviour is testable
+    // without a redis server or Docker in the loop.
+    testImplementation 'org.luaj:luaj-jse:3.0.1'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
     developmentOnly 'org.springframework.boot:spring-boot-devtools'

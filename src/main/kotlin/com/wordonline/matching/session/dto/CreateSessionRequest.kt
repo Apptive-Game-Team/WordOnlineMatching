@@ -27,4 +27,10 @@ data class SessionReadyResponse(
     val ready: Boolean,
     val serverUrl: String,
     val webSocketUrl: String,
+    /**
+     * Boot generation of the game server process that now owns this session. `null` when the
+     * game server predates the field; the lobby then has no restart evidence and must decide
+     * liveness from the session query alone.
+     */
+    val instanceId: String? = null,
 )

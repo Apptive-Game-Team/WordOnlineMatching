@@ -52,11 +52,20 @@ jwt:
 deploy:
   type: ${DEPLOY_TYPE:DEV}
 
+# Bound to MatchTicketProperties.
 matching:
   ticket:
     queue-timeout: 5m
     allocation-lease: 30s
+    # Applies to terminal tickets only. A MATCHED ticket never expires while its session runs.
     terminal-ttl: 30m
+    # MATCHED reconciler. Raise the interval far above a session's lifetime to disable the sweep.
+    matched-scan-interval: ${MATCHING_MATCHED_SCAN_INTERVAL:30s}
+    # Fast re-check of tickets a client reported but the lobby could not verify yet.
+    pending-scan-interval: ${MATCHING_PENDING_SCAN_INTERVAL:3s}
+    # A ticket is audited only once it has been MATCHED for at least this long.
+    matched-scan-grace: ${MATCHING_MATCHED_SCAN_GRACE:30s}
+    matched-scan-batch-size: ${MATCHING_MATCHED_SCAN_BATCH_SIZE:100}
 
 # Bound to GameServerProperties.
 gameserver:

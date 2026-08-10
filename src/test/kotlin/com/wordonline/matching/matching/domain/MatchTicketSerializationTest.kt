@@ -33,15 +33,49 @@ class MatchTicketSerializationTest {
                 webSocketUrl = "http://localhost:7777/ws",
             ),
             attemptId = "attempt-1",
+            serverId = 7L,
+            serverInstanceId = "boot-1",
             createdAt = Instant.parse("2026-08-10T00:00:00Z"),
             updatedAt = Instant.parse("2026-08-10T00:00:05Z"),
         )
 
-        val decoded = objectMapper.readValue(objectMapper.writeValueAsString(ticket), MatchTicket::class.java)
+        val json = objectMapper.writeValueAsString(ticket)
+        val decoded = objectMapper.readValue(json, MatchTicket::class.java)
 
         assertThat(decoded).isEqualTo(ticket)
         assertThat(decoded.matchInfo?.server).isEqualTo("http://localhost:7777")
         assertThat(decoded.matchInfo?.webSocketUrl).isEqualTo("http://localhost:7777/ws")
+        assertThat(decoded.serverInstanceId)
+            .`as`("호스트 재시작 판별의 유일한 근거이므로 왕복에서 사라지면 안 된다")
+            .isEqualTo("boot-1")
+        assertThat(decoded.serverId).isEqualTo(7L)
+    }
+
+    @Test
+    fun `derived opponent id is not written into the payload`() {
+        // A derived value in the payload would be read back as stored state on the next
+        // decode and could contradict matchInfo after a re-match.
+        val ticket = MatchTicket(
+            ticketId = "ticket-3",
+            userId = 1L,
+            mmr = 1200L,
+            state = MatchTicketState.MATCHED,
+            version = 3L,
+            matchInfo = MatchedInfoDto(
+                message = "Successfully Matched",
+                server = "http://localhost:7777",
+                leftUser = UserDetailResponseDto(1L, "left", "left@example.com"),
+                rightUser = UserDetailResponseDto(2L, "right", "right@example.com"),
+                sessionId = "session-1",
+            ),
+            createdAt = Instant.parse("2026-08-10T00:00:00Z"),
+            updatedAt = Instant.parse("2026-08-10T00:00:05Z"),
+        )
+
+        val json = objectMapper.readTree(objectMapper.writeValueAsString(ticket))
+
+        assertThat(json.has("opponentUserId")).isFalse()
+        assertThat(ticket.opponentUserId).isEqualTo(2L)
     }
 
     @Test
