@@ -1,0 +1,7 @@
+{
+  "attemptId": "attempt-1",
+  "sessionId": "session-1",
+  "ready": true,
+  "serverUrl": "http://localhost:7777",
+  "webSocketUrl": "http://localhost:7777/ws"
+}
