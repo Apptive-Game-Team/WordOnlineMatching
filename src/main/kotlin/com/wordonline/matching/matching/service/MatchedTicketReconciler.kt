@@ -25,8 +25,11 @@ import java.time.Instant
  *
  * The sweep confirms a loss only on evidence:
  *
- * - [SessionLiveness.LOST] - the host answered "no such session", or its boot generation
- *   changed. Conclusive on its own.
+ * - [SessionLiveness.LOST] - the boot generation changed, or the host answered "no such
+ *   session" without being provably the process that accepted it. Conclusive on its own.
+ * - [SessionLiveness.ENDED] - the same process answered "no such session": the game
+ *   finished. It stays a safety net for a `session-ended` notification that never arrived,
+ *   so the outcome is identical and only the recorded reason differs.
  * - [SessionLiveness.UNKNOWN] - the host said nothing. Confirmed only once
  *   [ServerHealthRegistry] has already taken that server out of rotation, which takes
  *   `gameserver.failure-threshold` consecutive failed probes. That reuse is deliberate: a
@@ -91,20 +94,27 @@ class MatchedTicketReconciler(
 
             when (sessionLivenessProbe.check(ticket)) {
                 SessionLiveness.ALIVE -> decided += ticket
-                SessionLiveness.LOST -> decided += release(ticket, sessionId)
-                SessionLiveness.UNKNOWN -> if (isHostOutOfRotation(ticket)) decided += release(ticket, sessionId)
+                SessionLiveness.LOST -> decided += release(ticket, sessionId, LostSessionRecovery.SESSION_LOST_REASON)
+                // The notification from the game server never arrived, or predates it. The
+                // sweep is late but the ending was still a normal one.
+                SessionLiveness.ENDED -> decided += release(ticket, sessionId, LostSessionRecovery.SESSION_ENDED_REASON)
+                SessionLiveness.UNKNOWN ->
+                    if (isHostOutOfRotation(ticket)) {
+                        decided += release(ticket, sessionId, LostSessionRecovery.SESSION_LOST_REASON)
+                    }
             }
         }
         return decided
     }
 
-    private suspend fun release(ticket: MatchTicket, sessionId: String): MatchTicket {
-        lostSessionRecovery.release(ticket)?.also {
+    private suspend fun release(ticket: MatchTicket, sessionId: String, reason: String): MatchTicket {
+        lostSessionRecovery.release(ticket, reason)?.also {
             log.warn(
-                "Reconciled lost session: ticketId={}, sessionId={}, userId={}",
+                "Reconciled finished session: ticketId={}, sessionId={}, userId={}, reason={}",
                 ticket.ticketId,
                 sessionId,
                 ticket.userId,
+                reason,
             )
         }
         return ticket

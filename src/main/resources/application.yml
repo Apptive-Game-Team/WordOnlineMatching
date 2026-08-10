@@ -52,6 +52,13 @@ jwt:
 deploy:
   type: ${DEPLOY_TYPE:DEV}
 
+# Bound to InternalApiProperties. Guards /api/internal/**, the server-to-server surface.
+# Callers present an account-server "server token" as a bearer token; no credential is stored
+# here, only which of those tokens count. Empty accepts any server token; set it to an
+# authority that exists in the account server to narrow it to the game servers.
+internal-api:
+  required-authority: ${INTERNAL_API_REQUIRED_AUTHORITY:}
+
 # Bound to MatchTicketProperties.
 matching:
   ticket:

@@ -2,6 +2,7 @@ package com.wordonline.matching.session.dto
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.wordonline.matching.matching.dto.SessionDto
+import com.wordonline.matching.matching.dto.SessionEndedRequest
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder
@@ -57,6 +58,26 @@ class GameServerContractTest {
         assertThat(json.has("sessionDto")).isFalse()
         assertThat(json.fieldNames().asSequence().toList())
             .containsExactlyInAnyOrder("attemptId", "sessionId", "uid1", "uid2", "sessionType", "scenarioId")
+    }
+
+    @Test
+    fun `the end-of-session notification the game server sends is readable`() {
+        val request = objectMapper.readValue(
+            fixture("session-ended-notification.json"),
+            SessionEndedRequest::class.java,
+        )
+
+        assertThat(request.instanceId).isEqualTo("00000000-0000-0000-0000-000000000001")
+    }
+
+    @Test
+    fun `the end-of-session notification carries nothing but the instance id`() {
+        // The session id travels in the path. A body that also named the users or the ticket
+        // would let the caller decide what to close, which is exactly what the instance id
+        // check exists to prevent.
+        val json = objectMapper.readTree(fixture("session-ended-notification.json"))
+
+        assertThat(json.fieldNames().asSequence().toList()).containsExactly("instanceId")
     }
 
     @Test

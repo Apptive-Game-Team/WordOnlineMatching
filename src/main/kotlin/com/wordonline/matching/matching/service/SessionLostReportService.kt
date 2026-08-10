@@ -59,12 +59,15 @@ class SessionLostReportService(
                 matchTicketRepository.markPendingVerification(ticket.ticketId, Instant.now(clock))
                 throw GameServerUnreachableException(localizedMessage())
             }
-            SessionLiveness.LOST -> released(ticket)
+            SessionLiveness.LOST -> released(ticket, LostSessionRecovery.SESSION_LOST_REASON)
+            // The client could not reach a session the host had already finished. Same
+            // cleanup, but recording it as a loss would invent an incident that never was.
+            SessionLiveness.ENDED -> released(ticket, LostSessionRecovery.SESSION_ENDED_REASON)
         }
     }
 
-    private suspend fun released(ticket: MatchTicket): SessionLostReport {
-        val released = lostSessionRecovery.release(ticket)
+    private suspend fun released(ticket: MatchTicket, reason: String): SessionLostReport {
+        val released = lostSessionRecovery.release(ticket, reason)
         if (released == null) {
             // The ticket changed under us; report whatever it is now rather than guessing.
             log.info("Ticket moved on while releasing lost session: ticketId={}", ticket.ticketId)
