@@ -11,12 +11,15 @@ import java.time.Clock
 import java.time.Instant
 
 /**
- * Retires the tickets of a session that is confirmed gone.
+ * Retires the tickets of a session that is confirmed over.
  *
  * Both players are stuck by the same missing session, and only one of them may ever report
  * it, so releasing one side alone would leave the other unable to re-queue. The opponent is
  * only touched while their active ticket still points at *this* session: once they have a
  * fresh ticket, a late report about the old session must not disturb it.
+ *
+ * A game that finished normally and a session that disappeared with its host need exactly
+ * the same cleanup, so both come through here; only the recorded [reason] tells them apart.
  */
 @Service
 class LostSessionRecovery(
@@ -24,7 +27,11 @@ class LostSessionRecovery(
     private val userService: UserService,
 ) {
     companion object {
+        /** The session stopped existing without the host finishing it: a restart, or a dead host. */
         const val SESSION_LOST_REASON = "SESSION_LOST"
+
+        /** The game ran to its end on a host that is still the process which accepted it. */
+        const val SESSION_ENDED_REASON = "SESSION_ENDED"
     }
 
     private val clock = Clock.systemUTC()
@@ -32,20 +39,23 @@ class LostSessionRecovery(
 
     /**
      * Transitions [ticket] - and the opponent's ticket when it qualifies - to
-     * `FAILED(SESSION_LOST)`, then puts the released users back online.
+     * `FAILED(reason)`, then puts the released users back online.
      *
      * Returns the caller's ticket as it now stands. A `null` return means the ticket moved
      * on under us and nothing was changed.
      */
-    suspend fun release(ticket: MatchTicket): MatchTicket? {
+    suspend fun release(ticket: MatchTicket, reason: String = SESSION_LOST_REASON): MatchTicket? {
         val now = Instant.now(clock)
-        val failed = ticket.toLost(now)
+        val failed = ticket.toFailed(now, reason)
         val opponent = findOpponentOnSameSession(ticket)
 
-        if (opponent != null && matchTicketRepository.transitionPair(failed, opponent.toLost(now), MatchTicketState.MATCHED)) {
+        if (opponent != null &&
+            matchTicketRepository.transitionPair(failed, opponent.toFailed(now, reason), MatchTicketState.MATCHED)
+        ) {
             log.info(
-                "Released both tickets of lost session: sessionId={}, userIds=[{}, {}]",
+                "Released both tickets of finished session: sessionId={}, reason={}, userIds=[{}, {}]",
                 ticket.matchInfo?.sessionId,
+                reason,
                 ticket.userId,
                 opponent.userId,
             )
@@ -57,7 +67,12 @@ class LostSessionRecovery(
         // Either there was no opponent to release, or their ticket changed between the read
         // and the write. The reporter still has to be freed.
         val released = matchTicketRepository.transition(failed, MatchTicketState.MATCHED) ?: return null
-        log.info("Released ticket of lost session: sessionId={}, userId={}", ticket.matchInfo?.sessionId, ticket.userId)
+        log.info(
+            "Released ticket of finished session: sessionId={}, reason={}, userId={}",
+            ticket.matchInfo?.sessionId,
+            reason,
+            ticket.userId,
+        )
         markOnline(ticket.userId)
         return released
     }
@@ -72,10 +87,10 @@ class LostSessionRecovery(
         return opponent.takeIf { onSameSession }
     }
 
-    private fun MatchTicket.toLost(now: Instant) = copy(
+    private fun MatchTicket.toFailed(now: Instant, reason: String) = copy(
         state = MatchTicketState.FAILED,
         version = version + 1,
-        reason = SESSION_LOST_REASON,
+        reason = reason,
         attemptId = null,
         allocationLeaseUntil = null,
         updatedAt = now,

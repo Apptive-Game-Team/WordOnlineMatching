@@ -101,9 +101,37 @@ class MatchedTicketReconcilerTest {
 
         assertThat(decoded("ticket-1").state).isEqualTo(MatchTicketState.FAILED)
         assertThat(decoded("ticket-2").state).isEqualTo(MatchTicketState.FAILED)
-        assertThat(decoded("ticket-1").reason).isEqualTo("SESSION_LOST")
+        assertThat(decoded("ticket-1").reason)
+            .`as`("같은 프로세스가 세션 없음을 답했으면 소실이 아니라 정상 종료다")
+            .isEqualTo("SESSION_ENDED")
         assertThat(sandbox.get("matching:active:1")).isNull()
         assertThat(sandbox.get("matching:active:2")).isNull()
+    }
+
+    @Test
+    fun `부팅 세대값이 바뀐 호스트의 티켓은 소실로 기록한다`() = runTest {
+        seedMatchedPair()
+        serverHealthRegistry.replaceServers(listOf(server.copy(instanceId = "boot-2")))
+        serverHealthRegistry.recordProbe(7L, true)
+
+        reconciler.reconcile()
+
+        assertThat(decoded("ticket-1").reason).isEqualTo("SESSION_LOST")
+        assertThat(decoded("ticket-2").reason).isEqualTo("SESSION_LOST")
+    }
+
+    @Test
+    fun `호스트가 사라져 확정된 경우도 소실로 기록한다`() = runTest {
+        seedMatchedPair()
+        whenever(legacyGameMatchService.isSessionActive(host, "session-1"))
+            .thenThrow(GameServerUnreachableException("unreachable"))
+        repeat(serverProperties.failureThreshold) { serverHealthRegistry.recordProbe(7L, false) }
+
+        reconciler.reconcile()
+
+        assertThat(decoded("ticket-1").reason)
+            .`as`("게임이 끝까지 갔는지 알 수 없으면 정상 종료로 적으면 안 된다")
+            .isEqualTo("SESSION_LOST")
     }
 
     @Test

@@ -178,27 +178,111 @@ SSE 이벤트는 보관하거나 replay하지 않는다. 연결이 끊겼다가 
    (구버전 게임 서버) 판단 근거로 쓰지 않고 다음 단계로 넘어간다.
 4. 호스트에 `GET /api/server/game-sessions/{sessionId}/active`를 조회한다.
 
+### 종료 사유 (`reason`)
+
+정리된 ticket은 `FAILED`가 되고 `reason`이 둘 중 하나로 남는다. 후처리는 완전히 같고
+기록만 다르다.
+
+| `reason` | 판정 근거 |
+|---|---|
+| `SESSION_ENDED` | 세대값이 **일치**하는 프로세스가 세션 없음을 답했다. 게임이 정상적으로 끝났다 |
+| `SESSION_LOST` | 세대값이 **불일치**(호스트 재시작)하거나, 호스트가 사라져 확정됐다. 어느 쪽 값이든 `NULL`이면 같은 프로세스라는 증거가 없으므로 `SESSION_LOST`다 |
+
 ### Response
 
 | Status | 의미 | Body |
 |---|---|---|
-| `200 OK` | ticket이 `FAILED(SESSION_LOST)`로 정리됐거나, 정리할 것이 없었다 | MatchTicket |
+| `200 OK` | ticket이 `FAILED(SESSION_ENDED\|SESSION_LOST)`로 정리됐거나, 정리할 것이 없었다 | MatchTicket |
 | `409 Conflict` | 세션이 살아있다. ticket은 그대로 둔다 | MatchTicket |
 | `404 Not Found` | 활성 ticket이 없거나 다른 세션이다 | 없음 |
 | `503 Service Unavailable` | 호스트 무응답. 종료 확정이 아니므로 ticket을 유지한다 | 메시지 |
 
-세션 소실이 확정되면 **상대방 ticket도 함께 정리한다.** 단, `matching:active:<상대userId>`가
+세션 종료가 확정되면 **상대방 ticket도 함께 정리한다.** 단, `matching:active:<상대userId>`가
 가리키는 ticket의 `matchInfo.sessionId`가 같은 세션일 때만이다. 상대가 이미 재큐해 새 ticket을
 들고 있으면 그 ticket은 건드리지 않는다. 정리된 사용자는 모두 `user_status`가 `Online`으로 돌아간다.
 
 `503`을 받은 클라이언트는 재시도해도 되지만, 로비가 해당 ticket을 재확인 대기열에 넣어
 `matching.ticket.pending-scan-interval` 주기로 다시 판정하므로 별도 폴링 없이도 곧 결론이 난다.
 
+---
+
+## Internal API (서버 간 호출)
+
+`/api/internal/**`은 사용자가 아니라 다른 서버가 호출하는 경로다. 별도의
+`SecurityWebFilterChain`이 사용자 체인보다 먼저 이 경로를 잡는다.
+
+### 인증
+
+**계정 서버가 발급한 server token**을 bearer 토큰으로 보낸다. 사용자 JWT로는 호출할 수 없다.
+
+```
+Authorization: Bearer <server token>
+```
+
+| 항목 | 값 |
+|---|---|
+| 헤더 | `Authorization: Bearer <token>` |
+| 토큰 | 계정 서버 `POST /admin/tokens`(`SUPER_ADMIN` 전용)가 발급하는 server token. `JWT_PUBLIC_KEY`로 서명 검증 |
+| 필수 claim | `type = "server_token"`, `memberId` **없음** (`sub`는 `server`) |
+| 선택 claim | `scope`. `internal-api.required-authority`를 설정하면 그 authority가 `scope`에 있어야 한다 |
+
+사용자 토큰은 `type` claim이 없고 `memberId`가 항상 붙으므로 두 조건 어느 쪽으로도 걸러진다.
+서명은 유효하므로 인증 자체는 통과하지만 권한이 없어 `403`이 된다. 토큰이 없거나 서명이
+검증되지 않으면 `401`이다. 사용자 체인과 달리 `/login`으로 리다이렉트하지 않는다.
+
+로비에 새로 저장하는 비밀값은 없다. 검증은 기존 `JWT_PUBLIC_KEY`로 하고, 호출자는
+`JwtWebClientConfig`(`team6515.jwt.path`)와 같은 방식으로 파일에서 읽은 토큰을 보낸다.
+
+| 설정 | 기본값 | 설명 |
+|---|---|---|
+| `internal-api.required-authority` (`INTERNAL_API_REQUIRED_AUTHORITY`) | 빈 값 | 서비스 토큰의 `scope`에 요구할 authority. 빈 값이면 모든 server token 허용 |
+
+### `POST /api/internal/game-sessions/{sessionId}/ended`
+
+게임 서버가 세션을 끝낸 직후 호출한다. reconciler가 도는 것을 기다리지 않고 ticket을 즉시
+닫아 재매칭이 바로 가능해진다.
+
+**인증:** server token 필요
+
+### Request Body
+
+```json
+{ "instanceId": "9f1c...-boot-uuid" }
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `instanceId` | String | 호출한 게임 서버 프로세스의 부팅 세대값. `SessionReadyResponse.instanceId` / `servers.instance_id`와 같은 값 |
+
+### Response
+
+| Status | 의미 |
+|---|---|
+| `204 No Content` | 접수됨. 정리할 ticket이 없었거나 무시된 경우도 포함한다 |
+| `400 Bad Request` | `instanceId`가 없다 |
+| `401 Unauthorized` | 토큰이 없거나 검증되지 않는다 |
+| `403 Forbidden` | 서비스 토큰이 아니다 (사용자 토큰 포함) |
+
+동작:
+
+- 해당 세션의 `MATCHED` ticket을 양쪽 모두 `FAILED(SESSION_ENDED)`로 전이하고 `markOnline`한다.
+  전이 규칙과 상대방 가드는 신고 경로와 완전히 같은 코드를 쓴다. 상대가 이미 재큐했으면
+  상대 ticket은 건드리지 않는다.
+- `instanceId`가 ticket에 기록된 값 또는 `servers` 행의 현재 값과 다르면, 이미 교체된
+  프로세스가 뒤늦게 보낸 통보이므로 **무시하고** `204`를 돌려준다. ticket은 reconciler가
+  세대값 불일치를 보고 `SESSION_LOST`로 정리한다. 어느 쪽이든 `NULL`이면 판단 근거가
+  없으므로 통보를 받아들인다.
+- 멱등하다. 같은 세션에 대한 두 번째 통보는 남은 `MATCHED` ticket이 없어 아무것도 바꾸지 않는다.
+- 통보가 유실돼도 reconciler가 그대로 안전망으로 남는다. 통보는 지름길일 뿐 유일한 경로가 아니다.
+
+---
+
 ## MATCHED reconciler
 
-양쪽 클라이언트가 모두 이탈해 아무도 신고하지 않는 경우의 안전망이다. `matching:matched`
-ZSET 인덱스를 주기적으로 훑어 위와 같은 기준으로 `FAILED(SESSION_LOST)` 전환과 `markOnline`을
-수행한다. 호스트가 한 번 응답하지 않았다는 이유로 세션을 끝내지 않고, `ServerHealthRegistry`가
+양쪽 클라이언트가 모두 이탈해 아무도 신고하지 않고, 종료 통보도 도착하지 않은 경우의
+안전망이다. `matching:matched` ZSET 인덱스를 주기적으로 훑어 위와 같은 기준으로
+`FAILED(SESSION_ENDED|SESSION_LOST)` 전환과 `markOnline`을 수행한다. 호스트가 한 번
+응답하지 않았다는 이유로 세션을 끝내지 않고, `ServerHealthRegistry`가
 `gameserver.failure-threshold`회 연속 실패로 서버를 로테이션에서 뺀 뒤에야 확정한다.
 
 | 설정 | 기본값 | 설명 |

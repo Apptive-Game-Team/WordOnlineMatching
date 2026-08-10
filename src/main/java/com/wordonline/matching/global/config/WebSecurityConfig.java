@@ -95,6 +95,13 @@ public class WebSecurityConfig {
         return new ReactiveJwtAuthenticationConverterAdapter(converter);
     }
 
+    /**
+     * The user-facing chain: every request here is authenticated as a member.
+     * <p>
+     * It is deliberately the last chain to match. {@code /api/internal/**} is taken first by
+     * {@link InternalApiSecurityConfig}, which demands a service token instead - authenticating
+     * a server-to-server call as a member would let any player end anyone's game session.
+     */
     @Bean
     SecurityWebFilterChain springSecurityFilterChain(
             ServerHttpSecurity http,

@@ -125,7 +125,9 @@ class SessionLostReportServiceTest {
         val report = service.report(1L, "session-1")
 
         assertThat(report).isInstanceOf(SessionLostReport.Released::class.java)
-        assertThat((report as SessionLostReport.Released).ticket.reason).isEqualTo("SESSION_LOST")
+        assertThat((report as SessionLostReport.Released).ticket.reason)
+            .`as`("같은 프로세스가 세션 없음을 답했으면 정상 종료로 기록한다")
+            .isEqualTo("SESSION_ENDED")
         assertThat(sandbox.get("matching:active:1")).isNull()
         assertThat(sandbox.get("matching:active:2")).isNull()
         assertThat(decoded("ticket-2").state).isEqualTo(MatchTicketState.FAILED)
@@ -197,6 +199,7 @@ class SessionLostReportServiceTest {
         val report = service.report(1L, "session-1")
 
         assertThat(report).isInstanceOf(SessionLostReport.Released::class.java)
+        assertThat((report as SessionLostReport.Released).ticket.reason).isEqualTo("SESSION_LOST")
         verify(legacyGameMatchService, never()).isSessionActive(any(), any())
     }
 

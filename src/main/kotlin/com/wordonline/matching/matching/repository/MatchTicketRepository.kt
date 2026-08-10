@@ -167,6 +167,25 @@ class MatchTicketRepository(
     suspend fun settledMatched(settledBefore: Instant, limit: Long): List<MatchTicket> =
         stillMatched(MATCHED_KEY, settledBefore.toEpochMilli().toDouble(), limit)
 
+    /**
+     * The tickets still in `MATCHED` on [sessionId], normally the two sides of one match.
+     *
+     * There is no session index: a ticket is reachable by user or by ticket id, and the game
+     * server's end-of-session notification knows neither. Scanning the `MATCHED` index instead
+     * of adding a third index keeps the redis scripts - which is where every ordering bug in
+     * this repository has lived - untouched, and the index only ever holds one entry per side
+     * of a running match. Read-only on purpose: pruning stale entries is the reconciler's job.
+     */
+    suspend fun matchedBySession(sessionId: String): List<MatchTicket> {
+        val ids = redis.opsForZSet()
+            .rangeByScore(MATCHED_KEY, Range.closed(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY))
+            .collectList()
+            .awaitSingle()
+
+        return ids.mapNotNull { ticketId -> redis.opsForValue().get(ticketKey(ticketId)).awaitSingleOrNull()?.let(::decode) }
+            .filter { it.state == MatchTicketState.MATCHED && it.matchInfo?.sessionId == sessionId }
+    }
+
     /** Records that a reported ticket could not be verified yet, for a fast re-check. */
     suspend fun markPendingVerification(ticketId: String, reportedAt: Instant) {
         redis.opsForZSet().add(PENDING_VERIFICATION_KEY, ticketId, reportedAt.toEpochMilli().toDouble()).awaitSingleOrNull()
