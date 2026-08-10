@@ -144,6 +144,45 @@ class DataServiceTest {
                 .verifyComplete();
     }
 
+    @Test
+    @DisplayName("값이_null인_파라미터는_제외하되_버전은_전체_기준으로_계산")
+    void getParameters_ExcludesNullValuesButKeepsVersionOverAllRows() {
+        ParameterValue validValue = ParameterValue.builder()
+                .id(1L)
+                .gameObjectId(10L)
+                .parameterId(100L)
+                .value(100.0)
+                .updatedAt(LocalDateTime.parse("2024-01-01T00:00:00"))
+                .build();
+
+        ParameterValue nullValue = ParameterValue.builder()
+                .id(2L)
+                .gameObjectId(10L)
+                .parameterId(101L)
+                .value(null)
+                .updatedAt(LocalDateTime.parse("2024-01-03T09:00:00"))
+                .build();
+
+        when(parameterValueRepository.findAllParameters())
+                .thenReturn(Flux.just(validValue, nullValue));
+        when(gameObjectRepository.findAllById(List.of(10L)))
+                .thenReturn(Flux.just(new GameObject(10L, "player")));
+        when(parameterRepository.findAllById(List.of(100L)))
+                .thenReturn(Flux.just(new Parameter(100L, "max_hp")));
+
+        StepVerifier.create(dataService.getParameters(null))
+                .assertNext(response -> {
+                    assert response.getParameters().size() == 1;
+                    assert response.getParameters().stream().noneMatch(parameter -> parameter.getValue() == null);
+                    assert response.getParameters().get(0).getGameObjectName().equals("player");
+                    assert response.getParameters().get(0).getParamName().equals("max_hp");
+                    assert response.getParameters().get(0).getValue().equals(100.0);
+                    assert response.getVersion().equals("2024-01-03T09:00:00");
+                    assert response.isRequiresRefresh();
+                })
+                .verifyComplete();
+    }
+
     private void assertResponseContainsFullParameterSnapshot(ParametersResponse response) {
         assert response.getParameters().size() == 3;
         assert response.getParameters().stream().anyMatch(parameter ->
