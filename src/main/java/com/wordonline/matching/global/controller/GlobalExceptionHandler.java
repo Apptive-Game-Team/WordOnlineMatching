@@ -4,6 +4,9 @@ import org.springframework.context.support.DefaultMessageSourceResolvable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authorization.AuthorizationDeniedException;
+
+import com.wordonline.matching.server.exception.GameServerUnreachableException;
+import com.wordonline.matching.server.exception.NoAvailableGameServerException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -30,6 +33,19 @@ public class GlobalExceptionHandler {
     public Mono<ResponseEntity<String>> handleIllegalArgumentException(IllegalArgumentException e) {
         log.trace(e.getMessage());
         return Mono.just(ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(e.getMessage()));
+    }
+
+    /**
+     * Capacity, not a bug. A game server being unavailable or unreachable is a transient
+     * condition the client should retry, so it must not land in the catch-all 500 below.
+     * The stack trace is omitted on purpose: this fires per failed match attempt and the
+     * message alone identifies the cause.
+     */
+    @ExceptionHandler({NoAvailableGameServerException.class, GameServerUnreachableException.class})
+    public Mono<ResponseEntity<String>> handleGameServerUnavailable(RuntimeException e) {
+        log.error("[GAME SERVER UNAVAILABLE] {}", e.getMessage());
+        return Mono.just(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(e.getMessage()));
     }
 

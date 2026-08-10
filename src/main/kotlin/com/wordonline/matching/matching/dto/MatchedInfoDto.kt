@@ -9,6 +9,7 @@ data class MatchedInfoDto @JvmOverloads constructor(
     val leftUser: UserDetailResponseDto,
     val rightUser: UserDetailResponseDto,
     val sessionId: String,
+    val webSocketUrl: String? = null,
     val type: String = "matchedInfoDto",
 ) {
     constructor(
@@ -21,5 +22,6 @@ data class MatchedInfoDto @JvmOverloads constructor(
         leftUser = leftUser,
         rightUser = rightUser,
         sessionId = sessionInfo.sessionId(),
+        webSocketUrl = null,
     )
 }

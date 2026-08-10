@@ -52,6 +52,12 @@ jwt:
 deploy:
   type: ${DEPLOY_TYPE:DEV}
 
+matching:
+  ticket:
+    queue-timeout: 5m
+    allocation-lease: 30s
+    terminal-ttl: 30m
+
 # Bound to GameServerProperties.
 gameserver:
   # How often the lobby re-discovers game servers and re-probes their health.
