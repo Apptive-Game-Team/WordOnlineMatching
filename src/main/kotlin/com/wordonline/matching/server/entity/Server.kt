@@ -11,6 +11,15 @@ data class Server(
     val port: Int? = null,
     val state: ServerState? = null,
     val type: ServerType? = null,
+    /**
+     * Boot generation the game server reports on every process start, written by the game
+     * server itself (`V041_20260810__add_server_instance_id.sql`).
+     *
+     * `null` means "not reported yet" - an older game server build - and never means
+     * "restarted". Comparisons against a ticket's stored value must stay inconclusive on
+     * `null` and fall back to querying session liveness.
+     */
+    val instanceId: String? = null,
 ) {
     val isLocal: Boolean
         get() = domain == "localhost" || domain == "127.0.0.1"

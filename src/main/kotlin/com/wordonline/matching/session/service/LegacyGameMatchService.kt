@@ -9,6 +9,7 @@ import com.wordonline.matching.server.entity.Server
 import com.wordonline.matching.server.exception.GameServerUnreachableException
 import com.wordonline.matching.server.exception.NoAvailableGameServerException
 import com.wordonline.matching.server.service.GameServerManagementService
+import com.wordonline.matching.session.domain.SessionPlacement
 import com.wordonline.matching.session.domain.SessionRecoveryInfo
 import com.wordonline.matching.session.dto.SimpleBooleanDto
 import com.wordonline.matching.session.dto.CreateSessionRequest
@@ -54,7 +55,7 @@ class LegacyGameMatchService(
      * out. Looking the users up once outside the loop also keeps a failover from re-querying
      * the account server per candidate.
      */
-    suspend fun createSession(sessionDto: SessionDto, attemptId: String = UUID.randomUUID().toString()): MatchedInfoDto {
+    suspend fun createSession(sessionDto: SessionDto, attemptId: String = UUID.randomUUID().toString()): SessionPlacement {
         val candidates = gameServerManagementService.getAvailableServers()
         if (candidates.isEmpty()) {
             throw NoAvailableGameServerException(localizedMessage("error.gameserver.unavailable"))
@@ -76,7 +77,7 @@ class LegacyGameMatchService(
                 ready.webSocketUrl,
             )
             sessionRecoveryStore.storeMatchInfo(matchedInfo).awaitSingleOrNull()
-            return matchedInfo
+            return SessionPlacement(matchedInfo, server.id, ready.instanceId)
         }
 
         log.error(
@@ -117,7 +118,7 @@ class LegacyGameMatchService(
             ?: throw IllegalArgumentException("Session Not Found")
 
         // ask the server that hosts this session, not an arbitrary available one
-        if (!checkSessionActive(sessionInfo.serverUrl(), sessionInfo.sessionId())) {
+        if (!isSessionActive(sessionInfo.serverUrl(), sessionInfo.sessionId())) {
             throw IllegalArgumentException("Session Already Deactivated")
         }
 
@@ -129,7 +130,7 @@ class LegacyGameMatchService(
      * A host that does not answer is a transient failure, not proof the session ended, so
      * this throws [GameServerUnreachableException] instead of reporting the session gone.
      */
-    private suspend fun checkSessionActive(serverUrl: String, sessionId: String): Boolean =
+    suspend fun isSessionActive(serverUrl: String, sessionId: String): Boolean =
         try {
             webClientBuilder.baseUrl(serverUrl).build()
                 .get()
