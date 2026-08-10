@@ -5,6 +5,8 @@ import com.wordonline.matching.auth.service.UserService;
 import com.wordonline.matching.global.service.LocalizationService;
 import com.wordonline.matching.matching.dto.SessionDto;
 import com.wordonline.matching.server.entity.Server;
+import com.wordonline.matching.server.entity.ServerState;
+import com.wordonline.matching.server.entity.ServerType;
 import com.wordonline.matching.server.service.GameServerManagementService;
 import com.wordonline.matching.session.domain.SessionRecoveryInfo;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,11 +24,9 @@ import reactor.test.StepVerifier;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -75,9 +75,10 @@ class LegacyGameMatchServiceTest {
 
     @Test
     void 유저_조회에_실패하면_게임_서버에_방을_만들지_않는다() {
-        Server server = mock(Server.class);
-        when(server.getUrl()).thenReturn("http://server-a:8080");
-        when(gameServerManagementService.getAvailableServer()).thenReturn(Optional.of(server));
+        // getAvailableServer() now returns a nullable Kotlin Server instead of Optional<Server>.
+        // Server is a Kotlin data class with a computed url, so a real instance beats a mock here.
+        Server server = new Server(1L, "http", "server-a", 8080, ServerState.ACTIVE, ServerType.GAME);
+        when(gameServerManagementService.getAvailableServer()).thenReturn(server);
         when(userService.getUserDetail(1L)).thenReturn(Mono.error(new IllegalStateException("account server down")));
         when(userService.getUserDetail(2L)).thenReturn(Mono.just(new UserDetailResponseDto(2L, "right", "r@x.com")));
 

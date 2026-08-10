@@ -35,7 +35,7 @@ public class LegacyGameMatchService {
     private final GameServerManagementService gameServerManagementService;
 
     public Mono<MatchedInfoDto> createSession(SessionDto sessionDto) {
-        Optional<Server> optionalServer = gameServerManagementService.getAvailableServer();
+        Optional<Server> optionalServer = Optional.ofNullable(gameServerManagementService.getAvailableServer());
         return getWebClient(optionalServer).flatMap(webClient ->
                 getUserDetails(sessionDto.getUid1(), sessionDto.getUid2()).flatMap(tuple ->
                         webClient.post().uri("/api/server/game-sessions")
