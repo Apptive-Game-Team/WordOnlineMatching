@@ -8,8 +8,13 @@ import java.util.Collections;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.actuate.autoconfigure.security.reactive.EndpointRequest;
+import org.springframework.boot.actuate.health.HealthEndpoint;
+import org.springframework.boot.actuate.metrics.export.prometheus.PrometheusScrapeEndpoint;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.ReactiveAuthenticationManager;
 import org.springframework.security.config.annotation.method.configuration.EnableReactiveMethodSecurity;
@@ -90,6 +95,13 @@ public class WebSecurityConfig {
         return new ReactiveJwtAuthenticationConverterAdapter(converter);
     }
 
+    /**
+     * The user-facing chain: every request here is authenticated as a member.
+     * <p>
+     * It is deliberately the last chain to match. {@code /api/internal/**} is taken first by
+     * {@link InternalApiSecurityConfig}, which demands a service token instead - authenticating
+     * a server-to-server call as a member would let any player end anyone's game session.
+     */
     @Bean
     SecurityWebFilterChain springSecurityFilterChain(
             ServerHttpSecurity http,
@@ -136,5 +148,15 @@ public class WebSecurityConfig {
         var source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
+    }
+
+    @Bean
+    @Order(Ordered.HIGHEST_PRECEDENCE)
+    SecurityWebFilterChain managementSecurityFilterChain(ServerHttpSecurity http) {
+        return http
+                .securityMatcher(EndpointRequest.to(HealthEndpoint.class, PrometheusScrapeEndpoint.class))
+                .authorizeExchange(exchange -> exchange.anyExchange().permitAll())
+                .csrf(CsrfSpec::disable)
+                .build();
     }
 }

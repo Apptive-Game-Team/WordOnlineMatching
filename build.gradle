@@ -38,6 +38,10 @@ dependencies {
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-reactor'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-reactive'
     implementation 'org.jetbrains.kotlin:kotlin-reflect'
+    // Kotlin classes with more than one constructor (defaults, @JvmOverloads, secondary
+    // constructors) have no single implicit creator for jackson-module-parameter-names to
+    // pick, so Jackson cannot deserialize them without this module.
+    implementation 'com.fasterxml.jackson.module:jackson-module-kotlin'
 
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
@@ -45,6 +49,11 @@ dependencies {
     annotationProcessor 'org.projectlombok:lombok'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'io.projectreactor:reactor-test'
+    testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test'
+    testImplementation 'org.mockito.kotlin:mockito-kotlin:5.4.0'
+    // Runs the repository's Lua scripts on the JVM so redis-side behaviour is testable
+    // without a redis server or Docker in the loop.
+    testImplementation 'org.luaj:luaj-jse:3.0.1'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
@@ -59,6 +68,10 @@ dependencies {
     //Spring Security
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
+
+    // Metrics
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
 
     testImplementation 'org.springframework.security:spring-security-test'
 }

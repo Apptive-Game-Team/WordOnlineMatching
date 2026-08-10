@@ -1,6 +1,20 @@
 server:
   port: ${PORT}
 
+# Metrics run on their own port so the public app port never serves /actuator.
+# Health and Prometheus endpoints allow unauthenticated scrapes.
+# MANAGEMENT_PORT must stay reachable only from the Prometheus host.
+management:
+  server:
+    port: ${MANAGEMENT_PORT:8081}
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
 spring:
   application:
     name: word-online-matching
@@ -37,3 +51,37 @@ jwt:
 
 deploy:
   type: ${DEPLOY_TYPE:DEV}
+
+# Bound to InternalApiProperties. Guards /api/internal/**, the server-to-server surface.
+# Callers present an account-server "server token" as a bearer token; no credential is stored
+# here, only which of those tokens count. Empty accepts any server token; set it to an
+# authority that exists in the account server to narrow it to the game servers.
+internal-api:
+  required-authority: ${INTERNAL_API_REQUIRED_AUTHORITY:}
+
+# Bound to MatchTicketProperties.
+matching:
+  ticket:
+    queue-timeout: 5m
+    allocation-lease: 30s
+    # Applies to terminal tickets only. A MATCHED ticket never expires while its session runs.
+    terminal-ttl: 30m
+    # MATCHED reconciler. Raise the interval far above a session's lifetime to disable the sweep.
+    matched-scan-interval: ${MATCHING_MATCHED_SCAN_INTERVAL:30s}
+    # Fast re-check of tickets a client reported but the lobby could not verify yet.
+    pending-scan-interval: ${MATCHING_PENDING_SCAN_INTERVAL:3s}
+    # A ticket is audited only once it has been MATCHED for at least this long.
+    matched-scan-grace: ${MATCHING_MATCHED_SCAN_GRACE:30s}
+    matched-scan-batch-size: ${MATCHING_MATCHED_SCAN_BATCH_SIZE:100}
+
+# Bound to GameServerProperties.
+gameserver:
+  # How often the lobby re-discovers game servers and re-probes their health.
+  refresh-interval: ${GAMESERVER_REFRESH_INTERVAL:15s}
+  # Per-server healthcheck timeout. A timeout counts as one failed probe, never an error.
+  healthcheck-timeout: ${GAMESERVER_HEALTHCHECK_TIMEOUT:3s}
+  # Room list fetch timeout. On timeout the server yields an empty room list.
+  sessions-timeout: ${GAMESERVER_SESSIONS_TIMEOUT:3s}
+  # Consecutive failed probes before a server stops receiving new sessions.
+  # One success restores it immediately.
+  failure-threshold: ${GAMESERVER_FAILURE_THRESHOLD:3}
