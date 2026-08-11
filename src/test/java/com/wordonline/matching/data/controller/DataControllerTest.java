@@ -35,7 +35,7 @@ class DataControllerTest {
     @Test
     @DisplayName("마법_전체_조회_버전없음_성공")
     void getMagics_WithoutVersion_ReturnsAllMagics() {
-        MagicDto magicDto = new MagicDto(1L, "fireball", List.of("Fire", "Fire", "Shoot"));
+        MagicDto magicDto = new MagicDto(1L, "fireball", "shoot", List.of("Fire", "Fire", "Shoot"));
         MagicsResponse mockResponse = new MagicsResponse("2024-01-01T00:00:00", List.of(magicDto), true);
 
         when(magicDataService.getMagics(isNull())).thenReturn(Mono.just(mockResponse));
@@ -52,6 +52,7 @@ class DataControllerTest {
                     assert response.magics().size() == 1;
                     assert response.magics().get(0).id().equals(1L);
                     assert response.magics().get(0).name().equals("fireball");
+                    assert response.magics().get(0).castType().equals("shoot");
                     assert response.magics().get(0).cards().equals(List.of("Fire", "Fire", "Shoot"));
                     assert response.requiresRefresh();
                 });
