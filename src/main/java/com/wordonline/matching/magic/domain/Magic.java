@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
 @Getter
@@ -15,4 +16,7 @@ public class Magic {
     @Id
     private Long id;
     private String name;
+
+    @Column("cast_type")
+    private String castType;
 }
