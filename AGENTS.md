@@ -86,3 +86,12 @@ Redis settings, and account server URLs must remain environment-driven.
 Database schema, seed, and operational data changes belong in
 `WordOnlineDatabase`. Do not add production SQL to this repository's runtime
 resources. Test-only fixtures may remain with their tests.
+
+## Versioning
+
+`version` in `build.gradle` is the lobby server's single version source. Update
+it in every runtime-behavior change: PATCH for backward-compatible fixes and
+internal changes, MINOR for backward-compatible features, and MAJOR for
+breaking API or protocol changes. Do not bump for documentation, tests, or
+agent-instruction-only changes. Never add a second runtime version or use a
+`-SNAPSHOT` deployable version. Spring Boot build info embeds this value.
