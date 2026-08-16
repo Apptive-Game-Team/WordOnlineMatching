@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 
+import java.util.Comparator;
 import java.util.List;
 
 @Slf4j
@@ -29,8 +30,14 @@ public class GameSessionService {
                 .flatMap(this::fetchGameSessionsFromServer)
                 .collectList()
                 .map(listOfLists -> {
+                    // Each game server returns its own rooms oldest first, but flatMap interleaves the
+                    // servers non-deterministically, so the merged list has to be re-sorted or the same
+                    // set of rooms comes back in a different order on every request.
                     List<RoomInfoDto> allRooms = listOfLists.stream()
                             .flatMap(List::stream)
+                            .sorted(Comparator.comparing(RoomInfoDto::createdAt,
+                                            Comparator.nullsLast(Comparator.naturalOrder()))
+                                    .thenComparing(RoomInfoDto::sessionId))
                             .toList();
                     return new RoomListDto(allRooms);
                 });
@@ -48,7 +55,8 @@ public class GameSessionService {
                                     room.sessionId(),
                                     room.leftUserId(),
                                     room.rightUserId(),
-                                    serverUrl
+                                    serverUrl,
+                                    room.createdAt()
                             ))
                             .toList();
                 });
