@@ -73,6 +73,11 @@ matching:
     # A ticket is audited only once it has been MATCHED for at least this long.
     matched-scan-grace: ${MATCHING_MATCHED_SCAN_GRACE:30s}
     matched-scan-batch-size: ${MATCHING_MATCHED_SCAN_BATCH_SIZE:100}
+  # Bound to MatchEventStreamProperties.
+  events:
+    # Keep-alive cadence for the /api/match/events SSE stream. Must stay below the shortest
+    # idle timeout of any proxy in front of this service.
+    heartbeat-interval: ${MATCHING_EVENTS_HEARTBEAT_INTERVAL:15s}
 
 # Bound to GameServerProperties.
 gameserver:

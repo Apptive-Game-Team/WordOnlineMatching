@@ -60,8 +60,8 @@ class MagicDataServiceTest {
                 .thenReturn(Flux.just(fullFireballCardOne, fullFireballCardTwo, fullIceWallCard));
         when(magicRepository.findAllById(List.of(10L, 20L)))
                 .thenReturn(Flux.just(
-                        new Magic(10L, "fireball"),
-                        new Magic(20L, "ice_wall")
+                        new Magic(10L, "fireball", "shoot"),
+                        new Magic(20L, "ice_wall", "build")
                 ));
         when(cardRepository.findAllById(List.of(100L, 101L, 200L)))
                 .thenReturn(Flux.just(fireCard, shootCard, waterCard));
@@ -85,7 +85,7 @@ class MagicDataServiceTest {
         when(magicCardRepository.findAll())
                 .thenReturn(Flux.just(magicCard));
         when(magicRepository.findAllById(List.of(10L)))
-                .thenReturn(Flux.just(new Magic(10L, "fireball")));
+                .thenReturn(Flux.just(new Magic(10L, "fireball", "shoot")));
         when(cardRepository.findAllById(List.of(100L)))
                 .thenReturn(Flux.just(fireCard));
 
@@ -127,10 +127,12 @@ class MagicDataServiceTest {
         assert response.magics().stream().anyMatch(magic ->
                 magic.id().equals(10L)
                         && magic.name().equals("fireball")
+                        && magic.castType().equals("shoot")
                         && magic.cards().equals(List.of("Fire", "Shoot")));
         assert response.magics().stream().anyMatch(magic ->
                 magic.id().equals(20L)
                         && magic.name().equals("ice_wall")
+                        && magic.castType().equals("build")
                         && magic.cards().equals(List.of("Water")));
     }
 }
