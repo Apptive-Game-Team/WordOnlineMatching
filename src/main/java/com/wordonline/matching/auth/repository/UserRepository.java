@@ -12,6 +12,13 @@ import reactor.core.publisher.Mono;
 public interface UserRepository extends R2dbcRepository<User, Long> {
 
     @Query("""
+SELECT is_novice
+FROM users
+WHERE id = :userId;
+""")
+    Mono<Boolean> isNovice(@Param("userId") Long userId);
+
+    @Query("""
 UPDATE users
 SET selected_deck_id = :deckId
 WHERE id = :userId;

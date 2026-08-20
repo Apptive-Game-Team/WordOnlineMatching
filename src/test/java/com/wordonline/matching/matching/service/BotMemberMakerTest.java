@@ -28,7 +28,7 @@ class BotMemberMakerTest {
     @Test
     void returnsNameFromEnabledPersona() {
         when(botPersonaRepository.findByUserId(-7L))
-                .thenReturn(Mono.just(new BotPersona(-7L, "database bot", true)));
+                .thenReturn(Mono.just(new BotPersona(-7L, "database bot", true, false)));
 
         StepVerifier.create(botMemberMaker.getBot(-7L))
                 .expectNextMatches(member -> member.getName().equals("database bot"))
@@ -48,7 +48,7 @@ class BotMemberMakerTest {
     @Test
     void rejectsDisabledPersona() {
         when(botPersonaRepository.findByUserId(-7L))
-                .thenReturn(Mono.just(new BotPersona(-7L, "disabled bot", false)));
+                .thenReturn(Mono.just(new BotPersona(-7L, "disabled bot", false, false)));
 
         StepVerifier.create(botMemberMaker.getBot(-7L))
                 .expectErrorMatches(error -> error instanceof IllegalStateException
@@ -59,11 +59,33 @@ class BotMemberMakerTest {
     @Test
     void selectsBotFromEnabledPersonaCatalog() {
         when(botPersonaRepository.findRandomEnabled())
-                .thenReturn(Mono.just(new BotPersona(-12L, "random bot", true)));
+                .thenReturn(Mono.just(new BotPersona(-12L, "random bot", true, false)));
 
         StepVerifier.create(botMemberMaker.getRandomEnabledBotId())
                 .expectNext(-12L)
                 .verifyComplete();
+    }
+
+    @Test
+    void selectsTheHospitalityPersonaForTheNovicePath() {
+        when(botPersonaRepository.findHospitality())
+                .thenReturn(Mono.just(new BotPersona(-3L, "Warm Welcome", true, true)));
+
+        StepVerifier.create(botMemberMaker.getHospitalityBotId())
+                .expectNext(-3L)
+                .verifyComplete();
+    }
+
+    // The caller falls back to the ordinary pool on this error. A missing tutorial opponent must not
+    // be the reason a new player cannot start a match.
+    @Test
+    void reportsWhenNoHospitalityPersonaExists() {
+        when(botPersonaRepository.findHospitality()).thenReturn(Mono.empty());
+
+        StepVerifier.create(botMemberMaker.getHospitalityBotId())
+                .expectErrorMatches(error -> error instanceof IllegalStateException
+                        && error.getMessage().contains("No hospitality bot persona"))
+                .verify();
     }
 
     @Test

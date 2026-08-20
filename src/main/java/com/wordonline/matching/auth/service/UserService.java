@@ -112,6 +112,18 @@ public class UserService {
                 .map(user -> user.getMmr() != null ? user.getMmr() : 0L);
     }
 
+    /**
+     * Whether this player still has the novice mark, which routes their practice match to the
+     * tutorial opponent. Missing rows and bots answer false: only a real account that has not
+     * finished the tutorial gets that opponent.
+     */
+    public Mono<Boolean> isNovice(Long userId) {
+        if (userId == null || userId < 0) {
+            return Mono.just(false);
+        }
+        return userRepository.isNovice(userId).defaultIfEmpty(false);
+    }
+
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public Mono<UserStatus> getStatus(Long userId) {
         if (userId == null || userId < 0){
