@@ -20,8 +20,11 @@ public class User {
     private Long selectedDeckId;
     private Integer totalWins;
     private Long mmr;
+    // Set by the database default on insert, cleared by the game server once the player has met
+    // the tutorial opponent. Read here so the lobby can route their practice match.
+    private Boolean isNovice;
 
     public User(long memberId) {
-        this(memberId, UserStatus.Online, null, 0, null);
+        this(memberId, UserStatus.Online, null, 0, null, null);
     }
 }

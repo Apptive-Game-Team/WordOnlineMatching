@@ -121,7 +121,13 @@ public class UserService {
         if (userId == null || userId < 0) {
             return Mono.just(false);
         }
-        return userRepository.isNovice(userId).defaultIfEmpty(false);
+        return findUserDomain(userId)
+                .map(user -> Boolean.TRUE.equals(user.getIsNovice()))
+                // Failing closed keeps the player queueing - they meet an ordinary bot and keep the
+                // mark for next time - but it must not be silent, or a novice who never meets the
+                // tutorial opponent looks like a routing bug rather than a lookup that failed.
+                .doOnError(error -> log.warn("Novice lookup failed for userId={}; treating as not a novice", userId, error))
+                .onErrorReturn(false);
     }
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
