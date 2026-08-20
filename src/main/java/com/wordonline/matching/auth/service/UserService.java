@@ -113,16 +113,16 @@ public class UserService {
     }
 
     /**
-     * Whether this player still has the novice mark, which routes their practice match to the
-     * tutorial opponent. Missing rows and bots answer false: only a real account that has not
-     * finished the tutorial gets that opponent.
+     * Whether this player is still working through the tutorial, which routes their practice match
+     * to the opponent that holds back. Reaching 1.0 means nothing is held back any more, so it is
+     * the same thing as having finished. Missing rows and bots answer false.
      */
     public Mono<Boolean> isNovice(Long userId) {
         if (userId == null || userId < 0) {
             return Mono.just(false);
         }
         return findUserDomain(userId)
-                .map(user -> Boolean.TRUE.equals(user.getIsNovice()))
+                .map(user -> user.getNoviceProgress() != null && user.getNoviceProgress() < 1.0f)
                 // Failing closed keeps the player queueing - they meet an ordinary bot and keep the
                 // mark for next time - but it must not be silent, or a novice who never meets the
                 // tutorial opponent looks like a routing bug rather than a lookup that failed.
