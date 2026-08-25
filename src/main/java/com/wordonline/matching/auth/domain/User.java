@@ -20,8 +20,12 @@ public class User {
     private Long selectedDeckId;
     private Integer totalWins;
     private Long mmr;
+    // How far the player is through the tutorial, from 0.5 to 1.0. Set by the database default on
+    // insert and raised by the game server on each win against the tutorial opponent. Read here so
+    // the lobby can route their practice match.
+    private Float noviceProgress;
 
     public User(long memberId) {
-        this(memberId, UserStatus.Online, null, 0, null);
+        this(memberId, UserStatus.Online, null, 0, null, null);
     }
 }

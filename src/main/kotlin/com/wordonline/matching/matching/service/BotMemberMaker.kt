@@ -15,6 +15,10 @@ class BotMemberMaker(
         .map(BotPersona::userId)
         .switchIfEmpty(Mono.error(IllegalStateException("No enabled bot persona is available.")))
 
+    fun getHospitalityBotId(): Mono<Long> = botPersonaRepository.findHospitality()
+        .map(BotPersona::userId)
+        .switchIfEmpty(Mono.error(IllegalStateException("No hospitality bot persona is available.")))
+
     fun getBot(botId: Long): Mono<AccountMemberResponseDto> {
         require(botId < 0) { "Bot user ID must be negative." }
 
