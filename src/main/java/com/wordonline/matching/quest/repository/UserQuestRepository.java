@@ -13,7 +13,8 @@ public interface UserQuestRepository extends R2dbcRepository<UserQuest, Long> {
 UPDATE user_quests
 SET state = 'COMPLETED'
 WHERE user_quests.user_id=:userId AND user_quests.quest_id=:questId
+  AND user_quests.state = 'IN_PROGRESS'
 """)
-    Mono<Void> setCompletedByUserIdAndQuestId(Long userId, Long questId);
+    Mono<Long> setCompletedByUserIdAndQuestId(Long userId, Long questId);
 }
 

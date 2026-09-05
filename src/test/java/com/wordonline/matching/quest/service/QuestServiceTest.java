@@ -26,6 +26,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -144,11 +146,28 @@ class QuestServiceTest {
         when(questChecker.check(userId, secondQuest)).thenReturn(Mono.just(true));
         when(rewardGiver.giveWithReward(userId, quest)).thenReturn(Mono.just(firstReward));
         when(rewardGiver.giveWithReward(userId, secondQuest)).thenReturn(Mono.just(secondReward));
-        when(userQuestRepository.setCompletedByUserIdAndQuestId(userId, quest.getId())).thenReturn(Mono.empty());
-        when(userQuestRepository.setCompletedByUserIdAndQuestId(userId, secondQuest.getId())).thenReturn(Mono.empty());
+        when(userQuestRepository.setCompletedByUserIdAndQuestId(userId, quest.getId())).thenReturn(Mono.just(1L));
+        when(userQuestRepository.setCompletedByUserIdAndQuestId(userId, secondQuest.getId())).thenReturn(Mono.just(1L));
 
         StepVerifier.create(questService.checkQuestsWithRewards(userId))
                 .expectNext(List.of(firstReward, secondReward))
                 .verifyComplete();
+    }
+
+    @Test
+    @DisplayName("퀘스트_선점_실패시_보상_미지급")
+    void checkQuestsWithRewards_SkipsRewardWhenAlreadyClaimed() {
+        long userId = 1L;
+
+        when(questRepository.findAllByUserIdAndState(userId, QuestState.IN_PROGRESS))
+                .thenReturn(Flux.just(quest));
+        when(questChecker.check(userId, quest)).thenReturn(Mono.just(true));
+        when(userQuestRepository.setCompletedByUserIdAndQuestId(userId, quest.getId())).thenReturn(Mono.just(0L));
+
+        StepVerifier.create(questService.checkQuestsWithRewards(userId))
+                .expectNext(List.of())
+                .verifyComplete();
+
+        verify(rewardGiver, never()).giveWithReward(anyLong(), any(Quest.class));
     }
 }

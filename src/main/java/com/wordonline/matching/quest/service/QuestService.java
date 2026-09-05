@@ -32,13 +32,13 @@ public class QuestService {
         return questRepository.findAllByUserIdAndState(userId, QuestState.IN_PROGRESS)
                 .filter(quest -> quest.getProgressChecker() != null)
                 .filterWhen(quest -> questChecker.check(userId, quest))
-                .flatMapSequential(quest -> rewardGiver.giveWithReward(userId, quest)
-                        .flatMap(reward -> markQuestCompleted(userId, quest.getId())
-                                .thenReturn(reward)))
+                .flatMapSequential(quest -> markQuestCompleted(userId, quest.getId())
+                        .filter(claimedRows -> claimedRows > 0)
+                        .flatMap(claimedRows -> rewardGiver.giveWithReward(userId, quest)))
                 .collectList();
     }
 
-    private Mono<Void> markQuestCompleted(long userId, long questId) {
+    private Mono<Long> markQuestCompleted(long userId, long questId) {
         return userQuestRepository.setCompletedByUserIdAndQuestId(userId, questId);
     }
 

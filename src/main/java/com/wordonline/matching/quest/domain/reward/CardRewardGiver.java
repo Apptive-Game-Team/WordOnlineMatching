@@ -3,7 +3,6 @@ package com.wordonline.matching.quest.domain.reward;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
-import com.wordonline.matching.deck.domain.UserCard;
 import com.wordonline.matching.deck.repository.UserCardRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -23,9 +22,7 @@ public class CardRewardGiver implements RewardGiver {
 
     @Override
     public Mono<Void> give(long userId) {
-        var userCard = new UserCard(userId, (long) cardId, CARD_REWARD_AMOUNT);
-        return userCardRepository.save(userCard)
-                .then();
+        return userCardRepository.addCount(userId, (long) cardId, CARD_REWARD_AMOUNT);
     }
 
     @Override
