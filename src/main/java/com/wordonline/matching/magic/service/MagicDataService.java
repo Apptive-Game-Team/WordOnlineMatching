@@ -98,7 +98,7 @@ public class MagicDataService {
                                             List<String> cards = cardsByMagicId.getOrDefault(magicId, List.of()).stream()
                                                     .map(mc -> {
                                                         Card card = cardMap.get(mc.getCardId());
-                                                        return card != null ? card.getName().name() : null;
+                                                        return card != null ? card.getName() : null;
                                                     })
                                                     .filter(Objects::nonNull)
                                                     .collect(Collectors.toList());
