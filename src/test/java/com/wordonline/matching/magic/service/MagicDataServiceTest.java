@@ -1,7 +1,6 @@
 package com.wordonline.matching.magic.service;
 
 import com.wordonline.matching.deck.domain.Card;
-import com.wordonline.matching.deck.dto.CardType;
 import com.wordonline.matching.deck.repository.CardRepository;
 import com.wordonline.matching.magic.domain.Magic;
 import com.wordonline.matching.magic.domain.MagicCard;
@@ -50,9 +49,9 @@ class MagicDataServiceTest {
         MagicCard fullFireballCardOne = new MagicCard(1L, 10L, 100L, LocalDateTime.parse("2024-01-01T00:00:00"));
         MagicCard fullFireballCardTwo = new MagicCard(2L, 10L, 101L, LocalDateTime.parse("2024-01-01T00:00:00"));
         MagicCard fullIceWallCard = new MagicCard(3L, 20L, 200L, changedAt);
-        Card fireCard = mockCard(100L, CardType.Fire);
-        Card shootCard = mockCard(101L, CardType.Shoot);
-        Card waterCard = mockCard(200L, CardType.Water);
+        Card fireCard = mockCard(100L, "Fire");
+        Card shootCard = mockCard(101L, "Shoot");
+        Card waterCard = mockCard(200L, "Water");
 
         when(magicCardRepository.findAllByUpdatedMagicsSince(any()))
                 .thenReturn(Flux.just(changedMagicCard));
@@ -80,7 +79,7 @@ class MagicDataServiceTest {
     void getMagics_WithoutVersion_ReturnsFullSnapshotAndChangedTrue() {
         LocalDateTime updatedAt = LocalDateTime.parse("2024-01-02T12:00:00");
         MagicCard magicCard = new MagicCard(1L, 10L, 100L, updatedAt);
-        Card fireCard = mockCard(100L, CardType.Fire);
+        Card fireCard = mockCard(100L, "Fire");
 
         when(magicCardRepository.findAll())
                 .thenReturn(Flux.just(magicCard));
@@ -115,7 +114,7 @@ class MagicDataServiceTest {
                 .verifyComplete();
     }
 
-    private Card mockCard(Long id, CardType name) {
+    private Card mockCard(Long id, String name) {
         Card card = mock(Card.class);
         when(card.getId()).thenReturn(id);
         when(card.getName()).thenReturn(name);
