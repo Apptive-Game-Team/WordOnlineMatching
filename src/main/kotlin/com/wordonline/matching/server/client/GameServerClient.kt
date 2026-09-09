@@ -18,24 +18,36 @@ class GameServerClient(
     private val log = LoggerFactory.getLogger(javaClass)
 
     /**
-     * Java interop boundary: `UserService` and `GameSessionService` are still Reactor-based
-     * Java, so this one keeps returning [Mono]. Convert alongside those callers.
+     * Java interop boundary: `UserService` is still Reactor-based Java, so this one keeps
+     * returning [Mono]. Convert alongside that caller.
+     *
+     * Collapses every failure - timeout included - to an empty room list so one unresponsive
+     * server cannot fail the combined session listing. Callers that need to notice the failure
+     * first, to retry on a different address, use [getGameSessionsOrThrow] instead.
      */
-    fun getGameSessions(serverUrl: String): Mono<RoomListDto> {
+    fun getGameSessions(serverUrl: String): Mono<RoomListDto> =
+        getGameSessionsOrThrow(serverUrl)
+            .onErrorResume { error ->
+                log.error("Failed to fetch game sessions from server: {}", serverUrl, error)
+                Mono.just(RoomListDto(emptyList()))
+            }
+
+    /**
+     * Same request as [getGameSessions], but lets a timeout or any other failure propagate
+     * instead of collapsing it to an empty list, so [GameSessionService] can retry once on the
+     * server's public address before giving up.
+     */
+    fun getGameSessionsOrThrow(serverUrl: String): Mono<RoomListDto> {
         log.info("Fetching game sessions from server: {}", serverUrl)
 
+        // The timeout stays *above* the caller's error handling so an unresponsive server
+        // surfaces as a TimeoutException instead of hanging past the intended budget.
         return webClientBuilder.baseUrl(serverUrl).build()
             .get()
             .uri("/api/server/game-sessions")
             .retrieve()
             .bodyToMono(RoomListDto::class.java)
-            // The timeout stays *above* onErrorResume so an unresponsive server collapses to an
-            // empty room list. Below it, the TimeoutException would escape the error handler.
             .timeout(properties.sessionsTimeout)
-            .onErrorResume { error ->
-                log.error("Failed to fetch game sessions from server: {}", serverUrl, error)
-                Mono.just(RoomListDto(emptyList()))
-            }
     }
 
     /**
