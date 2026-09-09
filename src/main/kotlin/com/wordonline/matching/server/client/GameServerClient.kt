@@ -42,7 +42,11 @@ class GameServerClient(
 
         // The timeout stays *above* the caller's error handling so an unresponsive server
         // surfaces as a TimeoutException instead of hanging past the intended budget.
-        return webClientBuilder.baseUrl(serverUrl).build()
+        // clone() first: baseUrl() mutates the builder and returns it, and this component is a
+        // singleton whose callers probe many servers at once. Without the copy a concurrent call
+        // overwrites the base URL and the request lands on another server - which was observed as
+        // a healthcheck logging one host while the failure came back from a different one.
+        return webClientBuilder.clone().baseUrl(serverUrl).build()
             .get()
             .uri("/api/server/game-sessions")
             .retrieve()
@@ -66,7 +70,7 @@ class GameServerClient(
         val healthy = try {
             // withTimeoutOrNull takes millis or a kotlin.time.Duration, not java.time.Duration.
             withTimeoutOrNull(properties.healthcheckTimeout.toMillis()) {
-                webClientBuilder.baseUrl(serverUrl).build()
+                webClientBuilder.clone().baseUrl(serverUrl).build()
                     .get()
                     .uri("/healthcheck")
                     .retrieve()

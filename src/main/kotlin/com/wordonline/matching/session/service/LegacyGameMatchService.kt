@@ -148,7 +148,9 @@ class LegacyGameMatchService(
     }
 
     private suspend fun requestSession(url: String, sessionDto: SessionDto, attemptId: String): SessionReadyResponse =
-        webClientBuilder.baseUrl(url).build()
+        // clone() first: baseUrl() mutates the shared builder, and session offers run concurrently
+        // across candidate servers. See GameServerClient for the failure this prevents.
+        webClientBuilder.clone().baseUrl(url).build()
             .post()
             .uri("/api/server/game-sessions")
             .bodyValue(CreateSessionRequest(attemptId, sessionDto))
@@ -176,7 +178,7 @@ class LegacyGameMatchService(
      */
     suspend fun isSessionActive(serverUrl: String, sessionId: String): Boolean =
         try {
-            webClientBuilder.baseUrl(serverUrl).build()
+            webClientBuilder.clone().baseUrl(serverUrl).build()
                 .get()
                 .uri("/api/server/game-sessions/$sessionId/active")
                 .retrieve()
