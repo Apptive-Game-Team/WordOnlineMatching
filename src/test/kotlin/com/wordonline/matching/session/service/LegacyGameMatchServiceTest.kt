@@ -55,13 +55,14 @@ class LegacyGameMatchServiceTest {
             .body("""{"attemptId":"attempt-1","sessionId":"session-1","ready":$ready,"serverUrl":"http://internal:9090","webSocketUrl":"wss://game.example/ws","instanceId":"boot-1"}""")
             .build()
 
-    private fun server(id: Long, domain: String) = Server(
+    private fun server(id: Long, domain: String, internalBaseUrl: String? = null) = Server(
         id = id,
         protocol = "http",
         domain = domain,
         port = 9090,
         state = ServerState.ACTIVE,
         type = ServerType.GAME,
+        internalBaseUrl = internalBaseUrl,
     )
 
     private fun stubUsers() {
@@ -88,6 +89,25 @@ class LegacyGameMatchServiceTest {
             .isEqualTo("http://internal:9090")
         assertThat(matched.matchInfo.webSocketUrl).isEqualTo("wss://game.example/ws")
         assertThat(sentRequests.map { it.url().host }).containsExactly("alpha", "beta")
+    }
+
+    @Test
+    fun `internal_base_url이 있으면 세션 생성 요청은 내부 주소로 나가고 클라이언트에 담기는 주소는 공개 주소 그대로다`() = runTest {
+        stubUsers()
+        whenever(gameServerManagementService.getAvailableServers())
+            .thenReturn(listOf(server(1L, "alpha", internalBaseUrl = "http://ac-game-alpha:8080")))
+
+        val matched = service { request -> readyResponse(true) }.createSession(sessionDto, "attempt-1")
+
+        assertThat(sentRequests.single().url().host)
+            .`as`("나가는 요청은 internal_base_url을 써야 한다")
+            .isEqualTo("ac-game-alpha")
+        assertThat(sentRequests.single().url().port)
+            .`as`("나가는 요청은 internal_base_url의 포트를 써야 한다")
+            .isEqualTo(8080)
+        assertThat(matched.matchInfo.server)
+            .`as`("클라이언트에 담기는 주소는 게임 서버 응답의 공개 주소 그대로여야 한다")
+            .isEqualTo("http://internal:9090")
     }
 
     @Test

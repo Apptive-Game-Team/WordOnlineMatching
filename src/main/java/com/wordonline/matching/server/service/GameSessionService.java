@@ -44,18 +44,21 @@ public class GameSessionService {
     }
 
     private Mono<List<RoomInfoDto>> fetchGameSessionsFromServer(Server server) {
-        String serverUrl = server.getUrl();
-        
-        return gameServerClient.getGameSessions(serverUrl)
+        // The outbound request goes over the server's call address (internal when reported,
+        // public otherwise), but RoomInfoDto.serverUrl must stay the public url: it rides
+        // MatchedInfoDto.server to the Unity client, which cannot reach the docker network.
+        String callUrl = server.getCallUrl();
+        String publicUrl = server.getUrl();
+
+        return gameServerClient.getGameSessions(callUrl)
                 .map(roomListDto -> {
-                    // Add server URL to each room info
                     // GameServerClient ensures roomListDto is never null and always contains a list (may be empty)
                     return roomListDto.rooms().stream()
                             .map(room -> new RoomInfoDto(
                                     room.sessionId(),
                                     room.leftUserId(),
                                     room.rightUserId(),
-                                    serverUrl,
+                                    publicUrl,
                                     room.createdAt()
                             ))
                             .toList();

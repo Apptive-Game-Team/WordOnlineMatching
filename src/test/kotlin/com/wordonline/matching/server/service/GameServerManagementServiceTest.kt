@@ -12,7 +12,9 @@ import org.junit.jupiter.api.Test
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.stub
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import reactor.core.publisher.Flux
 
@@ -30,7 +32,7 @@ class GameServerManagementServiceTest {
     private val gameServerManagementService =
         GameServerManagementService(serverRepository, gameServerClient, serverHealthRegistry)
 
-    private fun server(id: Long, domain: String, state: ServerState): Server =
+    private fun server(id: Long, domain: String, state: ServerState, internalBaseUrl: String? = null): Server =
         Server(
             id = id,
             protocol = "http",
@@ -38,6 +40,7 @@ class GameServerManagementServiceTest {
             port = 9090,
             state = state,
             type = ServerType.GAME,
+            internalBaseUrl = internalBaseUrl,
         )
 
     private fun stubDiscovery(vararg servers: Server) {
@@ -146,6 +149,18 @@ class GameServerManagementServiceTest {
         gameServerManagementService.refresh()
         assertThat(serverHealthRegistry.consecutiveFailures(1L)).isEqualTo(failureThreshold)
         assertThat(availableIds()).isEmpty()
+    }
+
+    @Test
+    fun `internal_base_url이 있는 서버는 healthcheck을 내부 주소로 보낸다`() = runTest {
+        val internalUrl = "http://ac-game-alpha:8080"
+        stubDiscovery(server(1L, "alpha", ServerState.ACTIVE, internalBaseUrl = internalUrl))
+        stubHealthcheck(internalUrl, true)
+
+        gameServerManagementService.refresh()
+
+        assertThat(availableIds()).containsExactly(1L)
+        verify(gameServerClient, never()).healthcheck(alphaUrl)
     }
 
     @Test

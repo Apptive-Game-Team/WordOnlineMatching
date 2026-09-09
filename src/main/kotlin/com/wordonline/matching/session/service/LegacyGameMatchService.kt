@@ -66,7 +66,7 @@ class LegacyGameMatchService(
         for (server in candidates) {
             val ready = offerSession(server, sessionDto, attemptId) ?: continue
 
-            log.info("Session created on game server {}: sessionId={}", server.url, sessionDto.sessionId)
+            log.info("Session created on game server {}: sessionId={}", server.callUrl, sessionDto.sessionId)
             // the URL must come from the server that actually accepted, not from the first candidate
             val matchedInfo = MatchedInfoDto(
                 "Successfully Matched",
@@ -88,10 +88,14 @@ class LegacyGameMatchService(
         throw NoAvailableGameServerException(localizedMessage("error.gameserver.unavailable"))
     }
 
-    /** Returns only a validated ready response; refusal, stale response, and transport failure allow failover. */
+    /**
+     * Offers the session on [server]'s call address and returns only a validated ready response;
+     * refusal, stale response, and transport failure allow failover. [Server.url] is not used
+     * here: it is reserved for the address handed back to the client.
+     */
     private suspend fun offerSession(server: Server, sessionDto: SessionDto, attemptId: String): SessionReadyResponse? =
         try {
-            val response = webClientBuilder.baseUrl(server.url).build()
+            val response = webClientBuilder.baseUrl(server.callUrl).build()
                 .post()
                 .uri("/api/server/game-sessions")
                 .bodyValue(CreateSessionRequest(attemptId, sessionDto))
@@ -101,7 +105,7 @@ class LegacyGameMatchService(
                 .awaitSingle()
 
             if (!response.ready || response.attemptId != attemptId || response.sessionId != sessionDto.sessionId) {
-                log.warn("Game server {} returned invalid readiness for session {}", server.url, sessionDto.sessionId)
+                log.warn("Game server {} returned invalid readiness for session {}", server.callUrl, sessionDto.sessionId)
                 null
             } else {
                 response
@@ -109,7 +113,7 @@ class LegacyGameMatchService(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            log.warn("Game server {} failed to take session {}: {}", server.url, sessionDto.sessionId, e.toString())
+            log.warn("Game server {} failed to take session {}: {}", server.callUrl, sessionDto.sessionId, e.toString())
             null
         }
 

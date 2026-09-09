@@ -79,11 +79,14 @@ class GameServerManagementService(
 
     private suspend fun probe(server: Server) {
         val healthy = try {
-            // getUrl() throws when protocol/domain/port are null, so it belongs inside the guard.
-            gameServerClient.healthcheck(server.url)
+            // callUrl throws when protocol/domain/port are null and internalBaseUrl is unset,
+            // so it belongs inside the guard.
+            gameServerClient.healthcheck(server.callUrl)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            // Do not re-read server.callUrl here: if protocol/domain/port and internalBaseUrl
+            // are all unset, it throws again and masks the original failure with a new one.
             log.warn("Healthcheck error for game server {}: {}", server.id, e.toString())
             false
         }
